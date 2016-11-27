@@ -1,0 +1,7 @@
+## Interface: 30300
+## Version: 0.0.1
+## Title: LordKator_TrinityMagic
+## Notes: Makes playing on a TC server much more fun
+## Author: Lord Kator aka Karl Bunch
+## SavedVariables:
+LordKator_TrinityMagic.xml
