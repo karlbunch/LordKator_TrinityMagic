@@ -141,11 +141,13 @@ function LKTM:UnitFramePostClick(self, unit, button)
 
     if button == "LeftButton" then
         SendChatMessage(LKTM.command, "whisper", nil, UnitName("player"))
+        return
     end
 
     if button == "RightButton" then
         CloseDropDownMenus()
         LKTM:Message(0, "Show LKTM Menu for " .. unit)
+        LKTMM:Show(self, unit)
         return
     end
 end
@@ -156,6 +158,7 @@ function LKTM:SetupPostClicks()
 
         if partyMemberFrame then
             partyMemberFrame:SetScript("PostClick", function(self, button) LKTM:UnitFramePostClick(self, "party"..i, button) end)
+            partyMemberFrame:SetAttribute("ctrl-type2", "target");
         end
     end
 end
@@ -168,11 +171,17 @@ function LKTM:OnLoad(self)
   end
 
   PlayerFrame:SetScript("PostClick", function(self, button) LKTM:UnitFramePostClick(self, "player", button) end)
+  PlayerFrame:SetAttribute("ctrl-type2", "target");
+
+  TargetFrame:SetScript("PostClick", function(self, button) LKTM:UnitFramePostClick(self, "target", button) end)
+  TargetFrame:SetAttribute("ctrl-type2", "target");
 
   for event, func in pairs(LKTM.eventHandlers) do
       LKTM:Message(9, "Listening to " .. event)
       self:RegisterEvent(event)
   end
+
+  LKTMM:Init(self)
 
   LKTM:Message(9, "OnLoad Complete")
 end
