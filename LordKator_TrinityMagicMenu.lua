@@ -7,149 +7,108 @@
 -- Created: Sun Nov 27 19:40:38 EST 2016
 ]]
 
-LKTMM = { }
+LKTMM = {
+    commandTips = {
+        [".group summon"] = {
+            tooltipTitle = "Group Summon",
+            tooltipText = "Summon your group to your location."
+        },
+        [".appear"] = {
+            tooltipTitle = "Appear At Target",
+            tooltipText = "Teleports you to the target."
+        },
+        [".summon"] = {
+            tooltipTitle = "Summon To Me",
+            tooltipText = "Teleports the target to you.",
+        },
+        [".die"] = {
+            tooltipTitle = "Die",
+            tooltipText ="Kills the target instantly.",
+        },
+        [".recall"] = {
+            tooltipTitle = "Return To Previous Location",
+            tooltipText = "Returns the target to the last location they teleported from or zoned into.",
+        },
+        [".revive"] = {
+            tooltipTitle = "Revive",
+            tooltipText = "Revive the target from death or damage.",
+        },
+        [".repairitems"] = {
+            tooltipTitle = "Repair Items",
+            tooltipText = "Repair the target's items.",
+        },
+    }
+}
 
-function LKTMM:ShowPartyFrame()
-	LordKator_TrinityMagic_ShowHidePartyFrame(true)
-end
-
-function LKTMM:ShowMeFrame()
-	LordKator_TrinityMagic_ShowHideMeFrame(true)
-end
-
-function LKTMM:ShowPetsFrame()
-	LordKator_TrinityMagic_ShowHidePetsFrame(true)
-end
-
-function LKTMM:ShowTanksFrame()
-	LordKator_TrinityMagic_ShowHideTanksFrame(true)
-end
-
-function LKTMM:ShowFriendsFrame()
-	LordKator_TrinityMagic_ShowHideFriendsFrame(true)
-end
-
-
-function LKTMM:SetButtonCount(info, arg1)
-	if InCombatLockdown() then
-		LordKator_TrinityMagic_Warn("Can't update button count while in combat!")
-		return
-	end
-	
-	LordKator_TrinityMagic_SetButtonCount(arg1)
-end
-
-function LKTMM:SetCurrentSpell(info, btnIndex, spellIndex)
-	if InCombatLockdown() then
-		LordKator_TrinityMagic_Warn("Can't configure buttons while in combat!")
-		return
-	end
-	
-	local Profile = LordKator_TrinityMagic_GetProfile()
-	
-	Profile.SpellNames[btnIndex] = LordKator_TrinityMagic_Spell.Name[spellIndex]
-	Profile.SpellIcons[btnIndex] = LordKator_TrinityMagic_Spell.Icon[spellIndex]
-	
-	UIDropDownMenu_SetText(LordKator_TrinityMagicDropDown[btnIndex], Profile.SpellNames[btnIndex])	
-
-	LordKator_TrinityMagic_UpdateButtonIcons()
-	LordKator_TrinityMagic_UpdateButtonSpells()
-end
-
-function LKTMM:TargetCommand(command)
-    -- TODO: include target in command string? (is it even needed)
-    LKTM:Message(0, "Run Command: " .. command .. " on " .. UnitName("target"))
-    SendChatMessage(command, "whisper", nil, UnitName("player"))
-end
-
-function LKTMM:GenericCommand(command)
-    LKTM:Message(0, "Run Command: " .. command)
-    SendChatMessage(command, "whisper", nil, UnitName("player"))
+function LKTMM:SetDefaultCommand()
+    LKTM:PromptForCommand()
 end
 
 function LKTMM:LordKator_TrinityMagicMenu_InitializeDropDown(self, level, menuList)
-    print("LordKator_TrinityMagicMenu_InitializeDropDown(" .. (self or "nil") .. ", " .. (level or "nil") .. ")")
-
     level = level or 1
 
-    -- Base menu items everyone gets
-    local menuTable = {
-        [1] = {
-            {
-                text = "Trinity Core Magic Menu",
-                isTitle = 1,
-                notCheckable = 1,
-            },
-            {
-                text = "Set Control-Click Command",
-                func = LKTMM.SetDefaultCommand,
-            },
-        }
-    }
+    print("LKTMM:LordKator_TrinityMagicMenu_InitializeDropDown(" .. (self or "nil") .. ", " .. (level or "nil") .. ", " .. (menuList or "nil") .. ")")
+
+    local menuTable = {}
+    local function appendMenuItem(menuText, tooltipText, item, keyValue)
+        local idx = keyValue or 1
+
+        item['text'] = menuText
+        item['tooltipTitle'] = menuText
+        item['tooltipText'] = tooltipText
+        item['notCheckable'] = 1
+
+        if menuTable[idx] == nil then
+            menuTable[idx] = {}
+        end
+        table.insert(menuTable[idx], item)
+    end
+    local function appendMenuCommand(command)
+        local tips = LKTMM.commandTips[command]
+
+        if tips then
+            appendMenuItem(tips.tooltipTitle, tips.tooltipText, {
+                func = function(self) LKTM:CommandOnUnit("target", command) end,
+            })
+        else
+            addMenuItem(command, "", {
+                func = function(self) LKTM:CommandOnUnit("target", command) end,
+            })
+        end
+    end
+
+    -- Build Menu
+    appendMenuItem("Trinity Core Magic Menu", "", { text = "Trinity Core Magic Menu", isTitle = 1, });
+
+    appendMenuItem("Set Control-Click Command","Set the command to run when you control-click a target", {
+        func = LKTMM.SetDefaultCommand,
+    })
 
     -- Context Sensitive Items
-    local unitMenuItems = { }
-
     if UnitIsUnit("player", "target") then
-        unitMenuItems = {
-            {
-                text = "Group Summon",
-                func = function(self) LKTMM:TargetCommand(".group summon") end,
-            },
-            {
-                text = "Return To Previous Location",
-                func = function(self) LKTMM:TargetCommand(".recall") end,
-            },
-        }
+        if GetNumPartyMembers() > 0 then
+            appendMenuCommand(".group summon")
+        end
     elseif UnitIsPlayer("target") then
-        unitMenuItems = {
-            {
-                text = "Appear At Target",
-                func = function(self) LKTMM:TargetCommand(".appear") end,
-            },
-            {
-                text = "Summon To Me",
-                func = function(self) LKTMM:TargetCommand(".summon") end,
-            },
-        }
+        appendMenuCommand(".appear")
+        appendMenuCommand(".summon")
     else
-        unitMenuItems = {
-            {
-                text = "Die",
-                func = function(self) LKTMM:TargetCommand(".die") end,
-            },
-        }
+        appendMenuCommand(".die")
     end
 
     if UnitIsPlayer("target") then
-        unitMenuItems[#unitMenuItems+1] = {
-                text = "Revive",
-                func = function(self) LKTMM:TargetCommand(".revive") end,
-        }
-        unitMenuItems[#unitMenuItems+1] = {
-                text = "Repair Items",
-                func = function(self) LKTMM:TargetCommand(".repairitems") end,
-        }
-    end
-
-    for k,v in pairs(unitMenuItems) do
-        menuTable[1][#menuTable[1]+1] = unitMenuItems[k]
-    end
-
-    -- Rest of the generic items everyone gets
-    local genericMenuItems = {
-    }
-
-    for k,v in pairs(genericMenuItems) do
-        menuTable[1][#menuTable[1]+1] = genericMenuItems[k]
+        appendMenuCommand(".recall")
+        appendMenuCommand(".revive")
+        appendMenuCommand(".repairitems")
     end
 
     -- Every Level Gets a Close
     for k,v in ipairs(menuTable) do
-        menuTable[k][#menuTable[k]+1] = {
-            text = CLOSE,
-            func = function(self) CloseDropDownMenus() end
-        }
+        if type(k) == "number" then
+            appendMenuItem(CLOSE, "Close Menu", {
+                func = function(self) CloseDropDownMenus() end,
+            }, k)
+        end
     end
 
     local info = menuTable[level]
@@ -162,30 +121,28 @@ function LKTMM:LordKator_TrinityMagicMenu_InitializeDropDown(self, level, menuLi
         end
     end
 
-    for idx, entry in ipairs(info) do
+    for idx,entry in ipairs(info) do
         UIDropDownMenu_AddButton(entry, level)
     end
 end
 
 function LKTMM:Init(parent)
-    print("LKTMM:Init() complete")
 end
 
 function LKTMM:Show(parent, unit)
-    local LordKator_TrinityMagicMenu = CreateFrame("Frame", "LordKator_TrinityMagicMenu", UIParent, "UIDropDownMenuTemplate") 
-    UIDropDownMenu_Initialize(LordKator_TrinityMagicMenu, LKTMM.LordKator_TrinityMagicMenu_InitializeDropDown, "MENU")
-
-    local anchorName = "TargetFrame"
+    local anchorName, xOfs, yOfs = "TargetFrame", 120, 10
 
     if UnitIsUnit("player", "target") then
-        anchorName = "PlayerFrame"
+        anchorName, xOfs, yOfs = "PlayerFrame", 106, 27
     end
 
     if string.sub(unit, 1, 5) == "party" then
-        anchorName = "PartyMemberFrame" .. string.sub(unit, 6, -1)
+        anchorName, xOfs, yOfs = "PartyMemberFrame" .. string.sub(unit, 6, -1), 47, 15
     end
 
-    print("LKTMM:Show(" .. unit .. ") anchorName=" .. anchorName)
+    local LordKator_TrinityMagicMenu = CreateFrame("Frame", "LordKator_TrinityMagicMenu", _G[anchorName], "UIDropDownMenuTemplate") 
 
-    ToggleDropDownMenu(1, nil, LordKator_TrinityMagicMenu, anchorName, 106, 27)
+    UIDropDownMenu_Initialize(LordKator_TrinityMagicMenu, LKTMM.LordKator_TrinityMagicMenu_InitializeDropDown, "MENU")
+
+    ToggleDropDownMenu(1, nil, LordKator_TrinityMagicMenu, anchorName, xOfs, yOfs)
 end

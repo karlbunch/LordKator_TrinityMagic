@@ -3,6 +3,7 @@
 ## Title: LordKator_TrinityMagic
 ## Notes: Makes playing on a TC server much more fun
 ## Author: Lord Kator aka Karl Bunch
-## SavedVariables:
+## SavedVariables: LordKator_TrinityMagic_Prefs_Global
+## SavedVariablesPerCharacter:
 LordKator_TrinityMagicMenu.lua
 LordKator_TrinityMagic.xml
