@@ -44,82 +44,110 @@ function LKTMM:SetDefaultCommand()
     LKTM:PromptForCommand()
 end
 
-function LKTMM:LordKator_TrinityMagicMenu_InitializeDropDown(self, level, menuList)
+function LKTMM:LordKator_TrinityMagicMenu_InitializeDropDown(self, level)
     level = level or 1
-
-    print("LKTMM:LordKator_TrinityMagicMenu_InitializeDropDown(" .. (self or "nil") .. ", " .. (level or "nil") .. ", " .. (menuList or "nil") .. ")")
-
     local menuTable = {}
-    local function appendMenuItem(menuText, tooltipText, item, keyValue)
-        local idx = keyValue or 1
 
+    local function appendMenuItem(menuLevel, menuText, tooltipText, item, keyValue)
         item['text'] = menuText
         item['tooltipTitle'] = menuText
         item['tooltipText'] = tooltipText
         item['notCheckable'] = 1
 
-        if menuTable[idx] == nil then
-            menuTable[idx] = {}
+        if menuTable[menuLevel] == nil then
+            menuTable[menuLevel] = {}
         end
-        table.insert(menuTable[idx], item)
+        table.insert(menuTable[menuLevel], item)
     end
-    local function appendMenuCommand(command)
+    local function appendMenuCommand(level, command)
         local tips = LKTMM.commandTips[command]
 
         if tips then
-            appendMenuItem(tips.tooltipTitle, tips.tooltipText, {
-                func = function(self) LKTM:CommandOnUnit("target", command) end,
+            appendMenuItem(level, tips.tooltipTitle, tips.tooltipText, {
+                func = function(frame) LKTM:CommandOnUnit("target", command) end,
             })
         else
-            addMenuItem(command, "", {
-                func = function(self) LKTM:CommandOnUnit("target", command) end,
+            addMenuItem(level, command, "", {
+                func = function(frame) LKTM:CommandOnUnit("target", command) end,
             })
         end
     end
 
     -- Build Menu
-    appendMenuItem("Trinity Core Magic Menu", "", { text = "Trinity Core Magic Menu", isTitle = 1, });
+    appendMenuItem(1, "Trinity Core Magic Menu", "", { text = "Trinity Core Magic Menu", isTitle = 1, })
 
-    appendMenuItem("Set Control-Click Command","Set the command to run when you control-click a target", {
-        func = LKTMM.SetDefaultCommand,
+    appendMenuItem(1, "Set Control-Click Command","Set the command to run when you control-click a target", {
+        hasArrow = 1,
     })
 
     -- Context Sensitive Items
     if UnitIsUnit("player", "target") then
         if GetNumPartyMembers() > 0 then
-            appendMenuCommand(".group summon")
+            appendMenuCommand(1, ".group summon")
         end
     elseif UnitIsPlayer("target") then
-        appendMenuCommand(".appear")
-        appendMenuCommand(".summon")
+        appendMenuCommand(1, ".appear")
+        appendMenuCommand(1, ".summon")
     else
-        appendMenuCommand(".die")
+        appendMenuCommand(1, ".die")
     end
 
     if UnitIsPlayer("target") then
-        appendMenuCommand(".recall")
-        appendMenuCommand(".revive")
-        appendMenuCommand(".repairitems")
+        appendMenuCommand(1, ".recall")
+        appendMenuCommand(1, ".revive")
+        appendMenuCommand(1, ".repairitems")
+    end
+
+    appendMenuItem(2, "Set Control-Click Command", "", { text = "Set Control-Click Command", isTitle = 1, })
+
+    appendMenuItem(2, "Prompt For Command","Prompt for command to use as control-click default.", {
+        func = LKTMM.SetDefaultCommand,
+    })
+
+    for cmd,tips in pairs(LKTMM.commandTips) do
+        appendMenuItem(2, tips.tooltipTitle, tips.tooltipText, {
+            func = function(frame)
+                LKTM:SetDefaultCommand(cmd)
+                CloseDropDownMenus()
+            end
+        })
+    end
+
+    local history = LKTM:GetCommandHistory()
+
+    for cmd, count in pairs(history) do
+        if LKTMM.commandTips[cmd] == nil then
+            appendMenuItem(2, cmd, "", {
+                func = function(frame)
+                    LKTM:SetDefaultCommand(cmd)
+                    CloseDropDownMenus()
+                end
+            })
+        end
     end
 
     -- Every Level Gets a Close
     for k,v in ipairs(menuTable) do
         if type(k) == "number" then
-            appendMenuItem(CLOSE, "Close Menu", {
-                func = function(self) CloseDropDownMenus() end,
-            }, k)
+            appendMenuItem(k, CLOSE, "Close Menu", {
+                func = function(frame) CloseDropDownMenus() end,
+            })
         end
     end
 
     local info = menuTable[level]
 
-    if menuList then
-        if info[menuList] then
-            info = info[menuList]
+    --[[
+    local menuValue = UIDROPDOWNMENU_MENU_VALUE
+
+    if menuValue then
+        if info[menuValue] then
+            info = info[menuValue]
         else
             info = { }
         end
     end
+    ]]
 
     for idx,entry in ipairs(info) do
         UIDropDownMenu_AddButton(entry, level)
@@ -140,9 +168,8 @@ function LKTMM:Show(parent, unit)
         anchorName, xOfs, yOfs = "PartyMemberFrame" .. string.sub(unit, 6, -1), 47, 15
     end
 
-    local LordKator_TrinityMagicMenu = CreateFrame("Frame", "LordKator_TrinityMagicMenu", _G[anchorName], "UIDropDownMenuTemplate") 
+    local LordKator_TrinityMagicMenuDropDown = CreateFrame("Frame", "LordKator_TrinityMagicMenuDropDown", _G[anchorName], "UIDropDownMenuTemplate") 
 
-    UIDropDownMenu_Initialize(LordKator_TrinityMagicMenu, LKTMM.LordKator_TrinityMagicMenu_InitializeDropDown, "MENU")
-
-    ToggleDropDownMenu(1, nil, LordKator_TrinityMagicMenu, anchorName, xOfs, yOfs)
+    UIDropDownMenu_Initialize(LordKator_TrinityMagicMenuDropDown, function(frame, level, menuList) LKTMM:LordKator_TrinityMagicMenu_InitializeDropDown(frame, level, menuList) end, "MENU")
+    ToggleDropDownMenu(1, nil, LordKator_TrinityMagicMenuDropDown, anchorName, xOfs, yOfs)
 end

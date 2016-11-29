@@ -192,6 +192,10 @@ function LKTM:DefaultCommandOnUnit(unit, button)
     LKTM:CommandOnUnit(unit, LKTM:GetGlobalPreference(defaultCommandKey))
 end
 
+function LKTM:GetCommandHistory()
+    return LKTM:GetGlobalPreference(defaultCommandKey .. '-history') or {}
+end
+
 function LKTM:CommandOnUnit(unit, command)
     LKTM:Message(0, "Run Command: [" .. command .. "] on " .. UnitName(unit))
 
