@@ -6,5 +6,6 @@
 ## SavedVariables: LordKator_TrinityMagic_Prefs_Global
 ## SavedVariablesPerCharacter:
 LordKator_TrinityMagicData.lua
+LordKator_TrinityMagicMenuBuilder.lua
 LordKator_TrinityMagicMenu.lua
 LordKator_TrinityMagic.xml
