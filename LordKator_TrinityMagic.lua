@@ -22,7 +22,8 @@ LKTM = {
     debugLevel = 9,
     defaults = {
         [defaultCommandKey] = "should use " .. SLASH_LORDKATOR_TRINITYMAGIC1 .. ' [setcmd|prompt] first!',
-        [defaultCommandKey .. '-history'] = { },
+        [defaultCommandKey .. '-history'] = {},
+        taxiHistory = {},
     },
 
     eventHandlers = {
@@ -196,6 +197,30 @@ function LKTM:GetCommandHistory()
     return LKTM:GetGlobalPreference(defaultCommandKey .. '-history') or {}
 end
 
+function LKTM:GetTaxiHistory()
+    return LKTM:GetGlobalPreference("taxiHistory") or {}
+end
+
+function LKTM:GotoTaxiNode(nodeEntry)
+    local taxiNodeId = nodeEntry.arg1
+
+    LKTM:CommandOnUnit("player", ".go taxinode " .. taxiNodeId)
+
+    local history = LKTM:GetTaxiHistory()
+
+    if history[taxiNodeId] then
+        history[taxiNodeId].count = history[taxiNodeId].count + 1
+    else
+        history[taxiNodeId] = {
+            count = 1,
+            id = nodeEntry.arg1,
+            text = nodeEntry.toolTipTitle or nodeEntry.value,
+        }
+    end
+
+    LKTM:SetGlobalPreference("taxiHistory", history)
+end
+
 function LKTM:CommandOnUnit(unit, command)
     LKTM:Message(0, "Run Command: [" .. command .. "] on " .. UnitName(unit))
 
@@ -211,7 +236,7 @@ function LKTM:PromptForCommand()
     StaticPopup_Show("LKTM_PromptCmd")
 end
 
-function LKTM:GlobalPreferenceSet(key)
+function LKTM:IsGlobalPreferenceSet(key)
     if LordKator_TrinityMagic_Prefs_Global and LordKator_TrinityMagic_Prefs_Global[key] then
         return 1
     end
@@ -221,7 +246,7 @@ end
 
 function LKTM:GetGlobalPreference(key)
     if LordKator_TrinityMagic_Prefs_Global then
-        return LordKator_TrinityMagic_Prefs_Global[key]
+        return LordKator_TrinityMagic_Prefs_Global[key] or LKTM.defaults[key]
     else
         return LKTM.defaults[key]
     end
@@ -253,6 +278,8 @@ function LKTM:OnLoad(self)
 
     LKTM:SetupPostClicks()
 
+    LKTM_Data:OnLoad(self)
+
     LKTMM:Init(self)
 
     LKTM:Message(9, "OnLoad Complete")
@@ -269,6 +296,21 @@ function LKTM:OnEvent(self, event, ...)
         (handler)(self, event, arg1, arg2, arg3, arg4, arg5)
     else
         LKTM:Message(0, "Unexpected Event: " .. event .. "(" .. (arg1 or "nil") .. ", " .. (arg2 or "nil") .. ", " .. (arg3 or "nil") .. ", " .. (arg4 or "nil") .. ", " .. (arg5 or "nil") .. ")")
+    end
+end
+
+function LKTM:pairsByKeys(t, f)
+    local a = {}
+    for n in pairs(t) do table.insert(a, n) end
+    table.sort(a, f)
+    local i = 0
+    return function ()
+        i = i + 1
+        if a[i] == nil then
+            return nil
+        else
+            return a[i], t[a[i]]
+        end
     end
 end
 
@@ -298,7 +340,7 @@ StaticPopupDialogs["LKTM_PromptCmd"] = {
     OnShow = function()
         local curCmd = ""
 
-        if LKTM:GlobalPreferenceSet(defaultCommandKey) then
+        if LKTM:IsGlobalPreferenceSet(defaultCommandKey) then
             curCmd = LKTM:GetGlobalPreference(defaultCommandKey)
         end
         getglobal(this:GetName().."EditBox"):SetText(curCmd)

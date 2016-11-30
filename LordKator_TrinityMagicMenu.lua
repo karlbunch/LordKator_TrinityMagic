@@ -37,6 +37,10 @@ LKTMM = {
             tooltipTitle = "Repair Items",
             tooltipText = "Repair the target's items.",
         },
+        [".combatstop"] = {
+            tooltipTitle = "Stop Combat",
+            tooltipText = "Clear target from combat.",
+        },
     }
 }
 
@@ -48,7 +52,7 @@ function LKTMM:LordKator_TrinityMagicMenu_InitializeDropDown(self, level)
     level = level or 1
     local menuTable = {}
 
-    local function appendMenuItem(menuLevel, menuText, tooltipText, item, keyValue)
+    local function appendMenuItem(menuLevel, menuText, tooltipText, item, menuValue)
         item['text'] = menuText
         item['tooltipTitle'] = menuText
         item['tooltipText'] = tooltipText
@@ -57,7 +61,15 @@ function LKTMM:LordKator_TrinityMagicMenu_InitializeDropDown(self, level)
         if menuTable[menuLevel] == nil then
             menuTable[menuLevel] = {}
         end
-        table.insert(menuTable[menuLevel], item)
+
+        if menuValue then
+            if menuTable[menuLevel][menuValue] == nil then
+                menuTable[menuLevel][menuValue] = {}
+            end
+            table.insert(menuTable[menuLevel][menuValue], item)
+        else
+            table.insert(menuTable[menuLevel], item)
+        end
     end
     local function appendMenuCommand(level, command)
         local tips = LKTMM.commandTips[command]
@@ -78,12 +90,85 @@ function LKTMM:LordKator_TrinityMagicMenu_InitializeDropDown(self, level)
 
     appendMenuItem(1, "Set Control-Click Command","Set the command to run when you control-click a target", {
         hasArrow = 1,
+        value = "SetControlClickCommand",
     })
 
     -- Context Sensitive Items
     if UnitIsUnit("player", "target") then
         if GetNumPartyMembers() > 0 then
             appendMenuCommand(1, ".group summon")
+        end
+
+        if LKTM_Data_TaxiMenu ~= nil then
+            appendMenuItem(1, "Instant Taxi","Choose a location you'd like to teleport to.", {
+                hasArrow = 1,
+                value = "TaxiMenu",
+            })
+
+            if menuTable[2] == nil then
+                menuTable[2] = {}
+            end
+
+            menuTable[2]["TaxiMenu"] = LKTM_Data_TaxiMenu
+
+            local taxiHistory = LKTM:GetTaxiHistory()
+
+            for k,v in pairs(menuTable[2]["TaxiMenu"]) do
+                if v.value and v.value == "TaxiMenuHistory" then
+                    v.disabled = 1
+                    break
+                end
+            end
+
+            if taxiHistory ~= nil then
+                local sortByCount = function(a,b) return taxiHistory[b]['count'] < taxiHistory[a]['count'] end
+                local historyItems = {}
+                for _,v in LKTM:pairsByKeys(taxiHistory, sortByCount) do
+                    table.insert(historyItems, {
+                        text = v.text,
+                        tooltipTitle = v.text,
+                        tooltipText = ".go taxinode " .. v.id,
+                        arg1 = v.id,
+                        notCheckable = 1,
+                        func = function(self, arg1, arg2, checked) LKTM:GotoTaxiNode(self) end,
+                    })
+                end
+
+                if #historyItems > 0 then
+                    table.insert(historyItems, 1, {
+                        ["text"] = "Recent Destinations",
+                        notCheckable = 1,
+                        isTitle = 1
+                    })
+
+                    if menuTable[3] == nil then
+                        menuTable[3] = {}
+                    end
+
+                    menuTable[3]["TaxiMenuHistory"] = historyItems
+
+                    for k,v in pairs(menuTable[2]["TaxiMenu"]) do
+                        if v.value and v.value == "TaxiMenuHistory" then
+                            v.disabled = nil
+                            break
+                        end
+                    end
+                end
+            end
+
+            if menuTable[3] == nil then
+                menuTable[3] = {}
+            end
+
+            for k, v in pairs(LKTM_Data_TaxiMenu) do
+                if string.match(k, "^%d+$") == nil then
+                    menuTable[3][k] = {}
+                    for n,item in pairs(v) do
+                        item.func = function(self, arg1, arg2, checked) LKTM:GotoTaxiNode(self) end
+                        table.insert(menuTable[3][k], item)
+                    end
+                end
+            end
         end
     elseif UnitIsPlayer("target") then
         appendMenuCommand(1, ".appear")
@@ -96,13 +181,14 @@ function LKTMM:LordKator_TrinityMagicMenu_InitializeDropDown(self, level)
         appendMenuCommand(1, ".recall")
         appendMenuCommand(1, ".revive")
         appendMenuCommand(1, ".repairitems")
+        appendMenuCommand(1, ".combatstop")
     end
 
-    appendMenuItem(2, "Set Control-Click Command", "", { text = "Set Control-Click Command", isTitle = 1, })
+    appendMenuItem(2, "Set Control-Click Command", "", { text = "Set Control-Click Command", isTitle = 1, }, "SetControlClickCommand")
 
     appendMenuItem(2, "Prompt For Command","Prompt for command to use as control-click default.", {
         func = LKTMM.SetDefaultCommand,
-    })
+    }, "SetControlClickCommand")
 
     for cmd,tips in pairs(LKTMM.commandTips) do
         appendMenuItem(2, tips.tooltipTitle, tips.tooltipText, {
@@ -110,7 +196,7 @@ function LKTMM:LordKator_TrinityMagicMenu_InitializeDropDown(self, level)
                 LKTM:SetDefaultCommand(cmd)
                 CloseDropDownMenus()
             end
-        })
+        }, "SetControlClickCommand")
     end
 
     local history = LKTM:GetCommandHistory()
@@ -122,7 +208,7 @@ function LKTMM:LordKator_TrinityMagicMenu_InitializeDropDown(self, level)
                     LKTM:SetDefaultCommand(cmd)
                     CloseDropDownMenus()
                 end
-            })
+            }, "SetControlClickCommand")
         end
     end
 
@@ -136,18 +222,15 @@ function LKTMM:LordKator_TrinityMagicMenu_InitializeDropDown(self, level)
     end
 
     local info = menuTable[level]
-
-    --[[
     local menuValue = UIDROPDOWNMENU_MENU_VALUE
 
     if menuValue then
         if info[menuValue] then
             info = info[menuValue]
         else
-            info = { }
+            info = { { text = "Broken Menu for " .. menuValue, isTitle = 1, } }
         end
     end
-    ]]
 
     for idx,entry in ipairs(info) do
         UIDropDownMenu_AddButton(entry, level)
