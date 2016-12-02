@@ -41,18 +41,168 @@ LKTMM = {
             tooltipTitle = "Stop Combat",
             tooltipText = "Clear target from combat.",
         },
-    }
+        [".tele name $home"] = {
+            tooltipTitle = "Instant Hearth",
+            tooltipText = "Return target to their hearth.",
+        }
+    },
 }
 
 function LKTMM:SetDefaultCommand()
     LKTM:PromptForCommand()
 end
 
-function LKTMM:LordKator_TrinityMagicMenu_InitializeDropDown(self, level)
+function LKTMM:BuildTaxiMenu(menu)
+    if LKTM_Data_TaxiMenu == nil then
+        return
+    end
+
+    menu:addFlyout(1, "Instant Taxi","Choose a location you'd like to teleport to.", "TaxiMenu")
+
+    for menuValue, menuItem in pairs(LKTM_Data_TaxiMenu) do
+        if string.match(menuValue, "^%d+$") ~= nil then
+            menu:addToMenu(2, menuItem, "TaxiMenu")
+        else
+            for _, item in pairs(menuItem) do
+                if item.value == "TaxiMenuHistory" then
+                    item.disabled = 1
+                end
+                item.func = function(self, arg1, arg2, checked) LKTM:GotoTaxiNode(self) end,
+                menu:addToMenu(3, item, menuValue)
+            end
+        end
+    end
+
+    local taxiHistory = LKTM:GetTaxiHistory()
+
+    if taxiHistory ~= nil then
+        local sortByCount = function(a,b) return taxiHistory[b]['count'] < taxiHistory[a]['count'] end
+        local historyItems = {}
+        for _,v in LKTM:pairsByKeys(taxiHistory, sortByCount) do
+            table.insert(historyItems, {
+                text = v.text,
+                tooltipTitle = v.text,
+                tooltipText = ".go taxinode " .. v.id,
+                arg1 = v.id,
+                notCheckable = 1,
+                func = function(self, arg1, arg2, checked) LKTM:GotoTaxiNode(self) end,
+            })
+        end
+
+        if #historyItems > 0 then
+            table.insert(historyItems, 1, {
+                ["text"] = "Recent Destinations",
+                notCheckable = 1,
+                isTitle = 1
+            })
+
+            menu:addItems(3, historyItems, "TaxiMenuHistory")
+
+            for k,v in pairs(menu:getItems(2, "TaxiMenu")) do
+                if v.value == "TaxiMenuHistory" then
+                    v.disabled = nil
+                    break
+                end
+            end
+        end
+    end
+end
+
+function LKTMM:QuestTool(frame, arg1, arg2, checked)
+    local cmd, unit, title = strsplit("|", arg1)
+    local command = ".quest " .. cmd .. " " .. arg2
+
+    if unit == "party" then
+        local playerName = UnitName("player")
+        local macroText = "/target player\n/whisper " .. playerName .. " " .. command .. "\n"
+        if GetNumPartyMembers() > 0 then
+            for i=1,GetNumPartyMembers(),1 do
+                macroText = macroText .. "/target party" .. i .. "\n/whisper " .. playerName .. " " .. command .. "\n"
+            end
+        end
+
+        macroText = macroText .. "/cleartarget\n"
+
+        LordKator_TrinityMagicConfirm:confirmMacro(
+            cmd .. " quest:\n\n" .. title .. "\n\nFor everyone in the party?",
+            macroText,
+            function() LKTM:Message(0, "Ran macro [" .. macroText .. "]") end
+        )
+        return
+    end
+
+    LKTM:CommandOnUnit(unit, command)
+end
+
+function LKTMM:BuildQuestMenu(menu)
+    local menuValue = "QuestMenuSelection"
+
+    menu:addFlyout(1, "Quest Log Tools", "Tools for working with quests", menuValue)
+
+    menu:addTitle(2, "Quests", menuValue)
+
+    local logItems = {}
+    local sectionTitle = nil
+    local i=0
+    while 1 do
+        i = i + 1
+        local questTitle, level, questTag, suggestedGroup, isHeader, isCollapsed, isComplete, isDaily, questID, displayQuestID = GetQuestLogTitle(i);
+
+        if questTitle == nil then
+            break
+        end
+        if isHeader then
+            sectionTitle = questTitle
+        else
+            if sectionTitle then
+                menu:addTitle(2, sectionTitle, menuValue)
+                sectionTitle = nil
+            end
+
+            local questMenuValue = "QuestMenu" .. questID
+
+            menu:addFlyout(2, questTitle .. (questTag and (" |cffffff00" .. questTag .."|r") or "") .. (isComplete and " (|cff00ff00complete|r)" or ""), "", questMenuValue, menuValue)
+                :getLastItem().arg1 = questID
+
+            menu:addTitle(3, questTitle, questMenuValue)
+                :addItem(3, "Complete quest", "Complete this quest for " .. UnitName("target") .. ".", {
+                    arg1 = "Complete|target|" .. questTitle,
+                    arg2 = questID,
+                    func = function(self, arg1, arg2, checked) LKTMM:QuestTool(self, arg1, arg2, checked) end,
+                }, questMenuValue)
+                :addItem(3, "Remove quest", "Remove this quest from" .. UnitName("target") .. ".", {
+                    arg1 = "Remove|target|" .. questTitle,
+                    arg2 = questID,
+                    func = function(self, arg1, arg2, checked) LKTMM:QuestTool(self, arg1, arg2, checked) end,
+                }, questMenuValue)
+
+            if GetNumPartyMembers() > 0 then
+                menu:addTitle(3, "Party", questMenuValue)
+                :addItem(3, "Add to party", "Add this quest to everyone in the party.", {
+                    arg1 = "Add|party|" .. questTitle,
+                    arg2 = questID,
+                    func = function(self, arg1, arg2, checked) LKTMM:QuestTool(self, arg1, arg2, checked) end,
+                }, questMenuValue)
+                :addItem(3, "Complete for party", "Complete this quest for everyone.", {
+                    arg1 = "Complete|party|" .. questTitle,
+                    arg2 = questID,
+                    func = function(self, arg1, arg2, checked) LKTMM:QuestTool(self, arg1, arg2, checked) end,
+                }, questMenuValue)
+                :addItem(3, "Remove from party", "Remove this quest from everyone.", {
+                    arg1 = "Remove|party|" .. questTitle,
+                    arg2 = questID,
+                    func = function(self, arg1, arg2, checked) LKTMM:QuestTool(self, arg1, arg2, checked) end,
+                }, questMenuValue)
+            end
+        end
+    end
+end
+
+function LKTMM:InitializeDropDown(self, level)
     local menu = LKTMM_MenuBuilder:New()
 
-    menu.addCommand = function (self, menuLevel, command)
-        local tips = LKTMM.commandTips[command]
+    menu.addCommand = function (self, menuLevel, command, tipsHint)
+        local tips = LKTMM.commandTips[tipsHint] or LKTMM.commandTips[command] or tipsHint
 
         if tips then
             return self:addItem(menuLevel, tips.tooltipTitle, tips.tooltipText, {
@@ -71,63 +221,15 @@ function LKTMM:LordKator_TrinityMagicMenu_InitializeDropDown(self, level)
 
     -- Context Sensitive Items
     if UnitIsUnit("player", "target") then
+        LKTMM:BuildTaxiMenu(menu)
+        LKTMM:BuildQuestMenu(menu)
         if GetNumPartyMembers() > 0 then
             menu:addCommand(1, ".group summon")
         end
-
-        if LKTM_Data_TaxiMenu ~= nil then
-            menu:addFlyout(1, "Instant Taxi","Choose a location you'd like to teleport to.", "TaxiMenu")
-
-            for menuValue, menuItem in pairs(LKTM_Data_TaxiMenu) do
-                if string.match(menuValue, "^%d+$") ~= nil then
-                    menu:addToMenu(2, menuItem, "TaxiMenu")
-                else
-                    for _, item in pairs(menuItem) do
-                        if item.value == "TaxiMenuHistory" then
-                            item.disabled = 1
-                        end
-                        item.func = function(self, arg1, arg2, checked) LKTM:GotoTaxiNode(self) end,
-                        menu:addToMenu(3, item, menuValue)
-                    end
-                end
-            end
-
-            local taxiHistory = LKTM:GetTaxiHistory()
-
-            if taxiHistory ~= nil then
-                local sortByCount = function(a,b) return taxiHistory[b]['count'] < taxiHistory[a]['count'] end
-                local historyItems = {}
-                for _,v in LKTM:pairsByKeys(taxiHistory, sortByCount) do
-                    table.insert(historyItems, {
-                        text = v.text,
-                        tooltipTitle = v.text,
-                        tooltipText = ".go taxinode " .. v.id,
-                        arg1 = v.id,
-                        notCheckable = 1,
-                        func = function(self, arg1, arg2, checked) LKTM:GotoTaxiNode(self) end,
-                    })
-                end
-
-                if #historyItems > 0 then
-                    table.insert(historyItems, 1, {
-                        ["text"] = "Recent Destinations",
-                        notCheckable = 1,
-                        isTitle = 1
-                    })
-
-                    menu:addItems(3, historyItems, "TaxiMenuHistory")
-
-                    for k,v in pairs(menu:getItems(2, "TaxiMenu")) do
-                        if v.value == "TaxiMenuHistory" then
-                            v.disabled = nil
-                            break
-                        end
-                    end
-                end
-            end
-        end
+        menu:addCommand(1, ".tele name $home")
     elseif UnitIsPlayer("target") then
         menu:addCommand(1, ".appear"):addCommand(1, ".summon")
+            :addCommand(1, ".tele name " .. UnitName("target") .. " $home", ".tele name $home")
     else
         menu:addCommand(1, ".die")
     end
@@ -166,6 +268,10 @@ function LKTMM:LordKator_TrinityMagicMenu_InitializeDropDown(self, level)
 
     menu:addItem(1, CLOSE, "Close Menu", { func = function(frame) CloseDropDownMenus() end })
 
+    if LKTM.debugLevel >= 9 then
+        LKTM:SetGlobalPreference("lastMenu", menu:getItems())
+    end
+
     menu:build(level or 1)
 end
 
@@ -185,6 +291,6 @@ function LKTMM:Show(parent, unit)
 
     local LordKator_TrinityMagicMenuDropDown = CreateFrame("Frame", "LordKator_TrinityMagicMenuDropDown", _G[anchorName], "UIDropDownMenuTemplate") 
 
-    UIDropDownMenu_Initialize(LordKator_TrinityMagicMenuDropDown, function(frame, level, menuList) LKTMM:LordKator_TrinityMagicMenu_InitializeDropDown(frame, level, menuList) end, "MENU")
+    UIDropDownMenu_Initialize(LordKator_TrinityMagicMenuDropDown, function(frame, level, menuList) LKTMM:InitializeDropDown(frame, level, menuList) end, "MENU")
     ToggleDropDownMenu(1, nil, LordKator_TrinityMagicMenuDropDown, anchorName, xOfs, yOfs)
 end

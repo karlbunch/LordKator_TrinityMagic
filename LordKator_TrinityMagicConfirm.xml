@@ -1,0 +1,106 @@
+<Ui xmlns="http://www.blizzard.com/wow/ui/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.blizzard.com/wow/ui/
+    ..\FrameXML\UI.xsd">
+    <Frame name="LordKator_TrinityMagicConfirm" toplevel="true" enableKeyboard="true" enableMouse="true" frameStrata="DIALOG" hidden="true">
+        <Size>
+            <AbsDimension x="320" y="72"/>
+        </Size>
+        <Anchors>
+            <Anchor point="CENTER" />
+        </Anchors>
+        <Backdrop bgFile="Interface\DialogFrame\UI-DialogBox-Background" edgeFile="Interface\DialogFrame\UI-DialogBox-Border" tile="true">
+            <BackgroundInsets>
+                <AbsInset left="11" right="12" top="12" bottom="11"/>
+            </BackgroundInsets>
+            <TileSize>
+                <AbsValue val="32"/>
+            </TileSize>
+            <EdgeSize>
+                <AbsValue val="32"/>
+            </EdgeSize>
+        </Backdrop>
+        <Layers>
+            <Layer level="ARTWORK">
+                <FontString name="$parentText"  parentKey="text" inherits="GameFontHighlight" text=" ">
+                    <Size>
+                        <AbsDimension x="290" y="0"/>
+                    </Size>
+                    <Anchors>
+                        <Anchor point="TOP">
+                            <Offset>
+                                <AbsDimension x="0" y="-16"/>
+                            </Offset>
+                        </Anchor>
+                    </Anchors>
+                </FontString>
+                <Texture name="$parentAlertIcon">
+                    <Size>
+                        <AbsDimension x="48" y="48"/>
+                    </Size>
+                    <Anchors>
+                        <Anchor point="LEFT">
+                            <Offset>
+                                <AbsDimension x="24" y="0"/>
+                            </Offset>
+                        </Anchor>
+                    </Anchors>
+                </Texture>
+            </Layer>
+        </Layers>
+        <Frames>
+            <Button name="$parentCloseButton" inherits="UIPanelCloseButton">
+                <Anchors>
+                    <Anchor point="TOPRIGHT">
+                        <Offset>
+                            <AbsDimension x="-3" y="-3"/>
+                        </Offset>
+                    </Anchor>
+                </Anchors>
+            </Button>
+            <Button name="$parentButton1" inherits="SecureActionButtonTemplate,OptionsButtonTemplate" parentKey="button1" id="1">
+                <Anchors>
+                    <Anchor point="RIGHT" relativeTo="$parent" relativePoint="CENTER">
+                        <Offset x="-8" y="0"/>
+                    </Anchor>
+                    <Anchor point="BOTTOM" relativeTo="$parent" relativePoint="BOTTOM">
+                        <Offset x="0" y="16"/>
+                    </Anchor>
+                </Anchors>
+            </Button>
+            <Button name="$parentButton2" inherits="OptionsButtonTemplate" parentKey="button2" id="2">
+                <Anchors>
+                    <Anchor point="LEFT" relativeTo="$parent" relativePoint="CENTER">
+                        <Offset x="8" y="0"/>
+                    </Anchor>
+                    <Anchor point="BOTTOM" relativeTo="$parent" relativePoint="BOTTOM">
+                        <Offset x="0" y="16"/>
+                    </Anchor>
+                </Anchors>
+                <Scripts>
+                    <OnClick>self:GetParent():Hide()</OnClick>
+                </Scripts>
+            </Button>
+        </Frames>
+        <Scripts>
+            <OnLoad>
+                local name = self:GetName();
+                self.button1 = _G[name .. "Button1"];
+                self.button2 = _G[name .. "Button2"];
+                self.text = _G[name .. "Text"];
+                self.icon = _G[name .. "AlertIcon"];
+                self.text:SetText(" ")
+                self.stringHeight = self.text:GetStringHeight()
+                self.confirmMacro = function(self, text, macroText, confirmPostClick)
+                    local _, numLines = text:gsub("\n", "\n")
+                    self.text:SetText(text)
+                    self.button1:SetText(YES)
+                    self.button2:SetText(NO)
+                    self:SetSize(max(self.text:GetStringWidth() + 20, self:GetWidth()), (self.stringHeight * (numLines+2)) + self.button1:GetHeight() + 28)
+                    self.button1:SetAttribute("type1", "macro")
+                    self.button1:SetAttribute("macrotext", macroText)
+                    self.button1:SetScript("PostClick", function(self) self:GetParent():Hide(); if confirmPostClick then confirmPostClick() end end)
+                    self:Show()
+                end
+            </OnLoad>
+        </Scripts>
+    </Frame>
+</Ui>

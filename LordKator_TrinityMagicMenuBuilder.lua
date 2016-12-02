@@ -5,6 +5,8 @@ function LKTMM_MenuBuilder:New(debug_level)
 end
 
 function LKTMM_MenuBuilder:addToMenu(menuLevel, item, menuValue)
+    self.lastItem = item
+
     if self.menu[menuLevel] == nil then
         self.menu[menuLevel] = {}
     end
@@ -48,17 +50,21 @@ function LKTMM_MenuBuilder:addItems(menuLevel, items, menuValue)
     return self
 end
 
-function LKTMM_MenuBuilder:addFlyout(menuLevel, menuText, tooltipText, menuValue)
+function LKTMM_MenuBuilder:addFlyout(menuLevel, menuText, tooltipText, menuValue, targetMenuValue)
     local i = self:InitInfo(menuText, tooltipText)
     i.hasArrow = 1
     i.value = menuValue
-    return self:addToMenu(menuLevel, i)
+    return self:addToMenu(menuLevel, i, targetMenuValue)
 end
 
 function LKTMM_MenuBuilder:addTitle(menuLevel, menuText, menuValue)
     local i = self:InitInfo(menuText)
     i.isTitle = 1
     return self:addToMenu(menuLevel, i, menuValue)
+end
+
+function LKTMM_MenuBuilder:getLastItem()
+    return self.lastItem
 end
 
 function LKTMM_MenuBuilder:getItems(menuLevel, menuValue)
