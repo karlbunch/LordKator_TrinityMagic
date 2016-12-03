@@ -14,6 +14,7 @@
 
 SLASH_LORDKATOR_TRINITYMAGIC1 = "/lktm"
 SLASH_LORDKATOR_TRINITYMAGIC2 = "/magic"
+SLASH_LORDKATOR_TRINITYMAGIC_ONALL1 = "/onall"
 
 local defaultCommandKey = 'ctrl-command1'
 
@@ -327,6 +328,27 @@ SlashCmdList["LORDKATOR_TRINITYMAGIC"] = function(msg, editBox)
         LKTM:Message(0, "Unknown command [" .. cmd .. "]")
         LKTM.slashCommands['help'].cmd(args)
     end
+end
+
+SlashCmdList["LORDKATOR_TRINITYMAGIC_ONALL"] = function(msg, editBox)
+    local title, command = string.match(msg, '"(.-)"%s+(.*)')
+
+    if not title then
+        title = "Run:\n\n" .. msg .. "\n\nOn everyone in the party?"
+        command = msg
+    end
+
+    local playerName = UnitName("player")
+    local macroText = "/target player\n/whisper " .. playerName .. " " .. command .. "\n"
+    if GetNumPartyMembers() > 0 then
+        for i=1,GetNumPartyMembers(),1 do
+            macroText = macroText .. "/target party" .. i .. "\n/whisper " .. playerName .. " " .. command .. "\n"
+        end
+    end
+
+    macroText = macroText .. "/cleartarget\n"
+
+    LordKator_TrinityMagicConfirm:confirmMacro(title, macroText)
 end
 
 StaticPopupDialogs["LKTM_PromptCmd"] = {
