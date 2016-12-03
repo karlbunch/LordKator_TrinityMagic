@@ -1,0 +1,5 @@
+<Bindings>
+  <Binding name="LKTMBINDING1" header="LKTMHEADER" default=".">
+      ChatFrame_OpenChat(".");
+  </Binding>
+</Bindings>

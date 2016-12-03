@@ -16,6 +16,9 @@ SLASH_LORDKATOR_TRINITYMAGIC1 = "/lktm"
 SLASH_LORDKATOR_TRINITYMAGIC2 = "/magic"
 SLASH_LORDKATOR_TRINITYMAGIC_ONALL1 = "/onall"
 
+BINDING_HEADER_LKTMHEADER = "Lord Kator's Trinity Magic"
+BINDING_NAME_LKTMBINDING1 = "Open Chat with DOT"
+
 local defaultCommandKey = 'ctrl-command1'
 
 LKTM = {
