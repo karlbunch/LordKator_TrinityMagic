@@ -205,6 +205,51 @@ function LKTMM:BuildQuestMenu(menu)
     end
 end
 
+function LKTMM:BuildNPCToolsMenu(menu)
+    local npcList = LKTM:GetGlobalPreference("savedNPClist")
+
+    local npcCount = 0
+    for _,_ in pairs(npcList or {}) do
+        npcCount = npcCount + 1
+    end
+
+    if npcCount <= 0 then
+        return
+    end
+
+    local menuValue = "NPCToolsMenu"
+
+    menu:addFlyout(1, "NPC Tools", "Tools for working with NPC's", menuValue)
+
+    menu:addTitle(2, "Saved NPC's", menuValue)
+
+    local sortNPC = function(a,b) return npcList[a]['unitName'] < npcList[b]['unitName'] end
+
+    for _,v in LKTM:pairsByKeys(npcList, sortNPC) do
+        local npcMenuValue = "NPCToolsMenuNPC" .. v.entryID
+
+        menu:addFlyout(2, v.unitName, "", npcMenuValue, menuValue)
+
+        menu:addTitle(3, v.unitName, npcMenuValue)
+        :addItem(3, "Spawn NPC", "Spawn this NPC at your position.", {
+            arg1 = v.entryID,
+            func = function(self, arg1, arg2, checked)
+                LKTM:CommandOnUnit("player", ".npc add temp loot " .. arg1)
+                CloseDropDownMenus()
+            end
+        }, npcMenuValue)
+        :addItem(3, "Forget NPC", "Forget this NPC.", {
+            arg1 = v.entryID,
+            func = function(self, arg1, arg2, checked)
+                local npcList = LKTM:GetGlobalPreference("savedNPClist")
+                npcList[arg1] = nil
+                LKTM:SetGlobalPreference("savedNPClist", npcList)
+                CloseDropDownMenus()
+            end
+        }, npcMenuValue)
+    end
+end
+
 function LKTMM:InitializeDropDown(self, level)
     local menu = LKTMM_MenuBuilder:New()
 
@@ -229,6 +274,7 @@ function LKTMM:InitializeDropDown(self, level)
     -- Context Sensitive Items
     if UnitIsUnit("player", "target") then
         LKTMM:BuildTaxiMenu(menu)
+        LKTMM:BuildNPCToolsMenu(menu)
         LKTMM:BuildQuestMenu(menu)
         if GetNumPartyMembers() > 0 then
             menu:addCommand(1, ".group summon")
@@ -238,7 +284,17 @@ function LKTMM:InitializeDropDown(self, level)
         menu:addCommand(1, ".appear"):addCommand(1, ".summon")
             :addCommand(1, ".tele name " .. UnitName("target") .. " $home", ".tele name $home")
     else
-        menu:addCommand(1, ".die")
+        local unitName = UnitName("target")
+
+        if GameTooltip:NumLines() >= 3 then
+            unitName = GameTooltipTextLeft1:GetText() .. " <" .. GameTooltipTextLeft2:GetText() .. ">"
+        end
+
+        menu:addItem(1, "Save: " .. unitName, "Save NPC so you can summon it later.", {
+                arg1 = unitName,
+                func = function(frame) LKTM:CopyNPC(frame, unitName) end
+            })
+        :addCommand(1, ".die")
     end
 
     if UnitIsPlayer("target") then

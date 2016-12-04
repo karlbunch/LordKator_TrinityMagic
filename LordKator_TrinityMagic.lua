@@ -23,11 +23,12 @@ local defaultCommandKey = 'ctrl-command1'
 
 LKTM = {
     version = "0.0.1",
-    debugLevel = 9,
+    debugLevel = 8,
     defaults = {
         [defaultCommandKey] = "should use " .. SLASH_LORDKATOR_TRINITYMAGIC1 .. ' [setcmd|prompt] first!',
         [defaultCommandKey .. '-history'] = {},
         taxiHistory = {},
+        savedNPClist = {},
     },
 
     eventHandlers = {
@@ -268,6 +269,75 @@ function LKTM:SetGlobalPreference(key, value)
     return value, oldValue
 end
 
+function LKTM:CopyNPC(frame, unitName)
+    LKTM.copyNPCstate = {
+        startTime = GetTime(),
+        unitName = unitName or UnitName("target"),
+        entryID = "unknown",
+        dbGUID = "unknown",
+        rawLines = {},
+    }
+    LKTM:CommandOnUnit("target", ".npc info")
+end
+
+function LKTM:FilterSystemChat (event, message)
+    -- Look for output of .npc info
+    -- LANG_NPCINFO_CHAR (ID 539)
+    -- NPC currently selected by player:
+    -- DB GUID: %u, current GUID: %u.
+    -- Faction: %u.
+    -- npcFlags: %u.
+    -- Entry: %u.
+    if not LKTM.copyNPCstate then
+        return false
+    end
+
+    if GetTime() - LKTM.copyNPCstate.startTime > 5.0 then
+        LKTM:Message(0, "=ERROR=: Timeout parsing NPC information request.")
+        LKTM.copyNPCstate = nil
+        return false
+    end
+
+    if string.sub(arg1, 1, 33) == "NPC currently selected by player:" then
+        LKTM.copyNPCstate.rawLines = {}
+    elseif string.sub(arg1, 1, 19) == "MechanicImmuneMask:" then
+        local newList = LKTM:GetGlobalPreference("savedNPClist")
+
+        newList[tostring(LKTM.copyNPCstate.entryID)] = {
+            parseTime = tonumber(string.format("%.02f", GetTime() - LKTM.copyNPCstate.startTime)),
+            lastUpdateDate = date(),
+            lastUpdateTime = time(),
+            unitName = LKTM.copyNPCstate.unitName,
+            entryID = LKTM.copyNPCstate.entryID,
+            dbGUID = LKTM.copyNPCstate.dbGUID,
+            rawLines = LKTM.copyNPCstate.rawLines,
+            zone = GetZoneText(),
+            subZone = GetSubZoneText(),
+            mapAreaId = GetCurrentMapAreaID(),
+        }
+
+        LKTM:SetGlobalPreference("savedNPClist", newList)
+        LKTM:Message(0, "Saved NPC " .. LKTM.copyNPCstate.unitName)
+        LKTM.copyNPCstate = nil
+    else
+        table.insert(LKTM.copyNPCstate.rawLines, arg1)
+
+        local dbGUID = arg1:match("DB GUID: (%d+),")
+
+        if dbGUID then
+            LKTM.copyNPCstate.dbGUID = dbGUID
+        else
+            local entryID = arg1:match("Entry: (%d+)%.")
+
+            if entryID then
+                LKTM.copyNPCstate.entryID = entryID
+            end
+        end
+    end
+
+    return true
+end
+
 function LKTM:OnLoad(self)
     LKTM:Message(9, "OnLoad Start")
 
@@ -285,6 +355,8 @@ function LKTM:OnLoad(self)
     LKTM_Data:OnLoad(self)
 
     LKTMM:Init(self)
+
+    ChatFrame_AddMessageEventFilter("CHAT_MSG_SYSTEM", LKTM.FilterSystemChat)
 
     LKTM:Message(9, "OnLoad Complete")
 end
