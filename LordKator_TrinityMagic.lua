@@ -39,6 +39,23 @@ LKTM = {
         ["PARTY_MEMBERS_CHANGED"] = function(self, event, arg1, arg2, arg3, arg4, arg5)
             LKTM:SetupPostClicks()
         end,
+        ["VARIABLES_LOADED"] = function(self, event, ...)
+            -- Hook Carbonite Map so Goto takes you directly to the location
+            LKTM.carbonite_STAC = Nx.Map.STAC
+            if LKTM.carbonite_STAC then
+                Nx.Map.STAC = function(self)
+                    local wx,wy=self:FPTWP(self.CFX,self.CFY)
+                    local zx,zy=self:GZP(self.MaI,wx,wy)
+                    local zoneId = LKTM_Data:findAreaId(self.COTF)
+                    if zoneId then
+                        LKTM:CommandOnUnit("player", format(".go zonexy %.2f %.2f %s\n", zx, zy, zoneId))
+                    else
+                        LKTM:Message(0, "Sorry can't map [" .. self.COTF .. "] to a zoneId")
+                    end
+                end
+                LKTM:Message(0, "Hooked Carbonite Map, try the Goto function!")
+            end
+        end
     },
 
     slashCommands = {

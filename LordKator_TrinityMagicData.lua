@@ -1394,6 +1394,94 @@ LKTM_Data_TaxiMenu = {
 	},
 }
 
+LKTM_Data_ZoneToID = {
+	["AlteracMountains"] = "36",
+	["ArathiHighlands"] = "45",
+	["Ashenvale"] = "331",
+	["Azshara"] = "16",
+	["AzuremystIsle"] = "3524",
+	["Badlands"] = "3",
+	["BladesEdgeMountains"] = "3522",
+	["BlastedLands"] = "4",
+	["BloodmystIsle"] = "3525",
+	["BoreanTundra"] = "3537",
+	["BurningSteppes"] = "46",
+	["CrystalsongForest"] = "2817",
+	["Dalaran"] = "4395",
+	["Darkshore"] = "148",
+	["Darnassus"] = "1657",
+	["DeadwindPass"] = "41",
+	["Desolace"] = "405",
+	["Dragonblight"] = "65",
+	["DunMorogh"] = "1",
+	["Durotar"] = "14",
+	["Duskwood"] = "10",
+	["DustwallowMarsh"] = "15",
+	["EasternPlaguelands"] = "139",
+	["ElwynnForest"] = "12",
+	["EversongWoods"] = "3430",
+	["Felwood"] = "361",
+	["Feralas"] = "357",
+	["Ghostlands"] = "3433",
+	["GrizzlyHills"] = "394",
+	["HellfirePeninsula"] = "3483",
+	["HillsbradFoothills"] = "267",
+	["HowlingFjord"] = "495",
+	["HrothgarsLanding"] = "4769",
+	["Icecrown"] = "210",
+	["Ironforge"] = "1537",
+	["IsleofQuelDanas"] = "4080",
+	["LochModan"] = "38",
+	["Moonglade"] = "493",
+	["Mulgore"] = "215",
+	["Nagrand"] = "3518",
+	["Netherstorm"] = "3523",
+	["Orgrimmar"] = "1637",
+	["RedridgeMountains"] = "44",
+	["SearingGorge"] = "51",
+	["ShadowmoonValley"] = "3520",
+	["ShattrathCity"] = "3703",
+	["SholazarBasin"] = "3711",
+	["Silithus"] = "1377",
+	["SilvermoonCity"] = "3487",
+	["SilverpineForest"] = "130",
+	["StonetalonMountains"] = "406",
+	["StormwindCity"] = "1519",
+	["StranglethornVale"] = "33",
+	["SwampofSorrows"] = "8",
+	["Tanaris"] = "440",
+	["Teldrassil"] = "141",
+	["TerokkarForest"] = "3519",
+	["TheBarrens"] = "17",
+	["TheExodar"] = "3557",
+	["TheHinterlands"] = "47",
+	["TheStormPeaks"] = "67",
+	["ThousandNeedles"] = "400",
+	["ThunderBluff"] = "1638",
+	["TirisfalGlades"] = "85",
+	["UnGoroCrater"] = "490",
+	["Undercity"] = "1497",
+	["WesternPlaguelands"] = "28",
+	["Westfall"] = "40",
+	["Wetlands"] = "11",
+	["Wintergrasp"] = "4197",
+	["Winterspring"] = "618",
+	["Zangarmarsh"] = "3521",
+	["ZulDrak"] = "66",
+}
+
+function LKTM_Data:findAreaId(areaName)
+    areaName = areaName:gsub("[%s']", "")
+
+    if LKTM_Data_ZoneToID[areaName] then
+        return LKTM_Data_ZoneToID[areaName]
+    end
+
+    LKTM:Message(0, "WARNING: Could not map [" .. areaName .. "] to an areaId")
+
+    return nil
+end
+
 function LKTM_Data:PopUp(msg)
     BasicScriptErrors:Hide();
     print("LKTM_Data:PopUp: " .. msg)
@@ -1401,10 +1489,16 @@ function LKTM_Data:PopUp(msg)
 end
 
 function LKTM_Data:OnLoad(self, frame)
-    if LKTM_Data_TaxiMenu ~= nil then
-        return
+    if LKTM_Data_TaxiMenu == nil then
+        LKTM_Data:QueryTaxiNodes(self, frame)
     end
 
+    if LKTM_Data_ZoneToID == nil then
+        LKTM_Data:QueryZones(self, frame)
+    end
+end
+
+function LKTM_Data:QueryTaxiNodes(self, frame)
     -- Setup to query all taxinodes
     LKTM_Data_TaxiParser = {
         taxiNodes = {},
@@ -1542,4 +1636,98 @@ function LKTM_Data:BuildTaxiMenu()
     LKTM_Data_TaxiMenu = taxiMenu
 
     LKTM_Data:PopUp("Taxi Menu Built")
+end
+
+function LKTM_Data:QueryZones(self, frame)
+    -- Find Zone Names we want
+    local zones = {}
+    local function parseZones(...)
+        print("Zones:", ...)
+        for i=1,select("#", ...) do
+            zones[select(i, ...)] = 1
+        end
+    end
+
+    local i = 0
+    while i < 20 do
+        i = i + 1
+        local zoneList = GetMapZones(i)
+        if zoneList == nil or zoneList == "" then
+            LKTM:Message(0, "Empty Zone List at " .. i)
+            break
+        end
+        parseZones(GetMapZones(i))
+    end
+
+    local keyDelay = 2
+
+    LKTM_Data_ZoneParser = {
+        countdown = keyDelay,
+        zoneMap = {},
+        phase = 1,
+        zoneNames = {},
+        curZoneIdx = 1,
+        failedToParse = {},
+        wantedZones = zones,
+    }
+
+    for zoneName,_ in pairs(zones) do
+        table.insert(LKTM_Data_ZoneParser.zoneNames, zoneName)
+    end
+    LKTM:Message(0, "Searching for zoneId in " .. #LKTM_Data_ZoneParser.zoneNames .. " zones.")
+
+    local frame = CreateFrame("Frame", "LordKator_TrinityMagicDataQueryZones")
+
+    frame:RegisterEvent("CHAT_MSG_SYSTEM")
+
+    frame:SetScript("OnEvent", function(self, event, arg1)
+        -- 3523 - |cffffffff|Harea:3523|h[Netherstorm enUS]|h|r
+        if not string.find(arg1, "Harea:") then
+            return
+        end
+
+        LKTM_Data_ZoneParser.countdown = keyDelay
+
+        local zoneID, zoneName = arg1:match("Harea:(%d+)%|h%[(.*) %S+%]")
+
+        if zoneID == nil or  zoneName == nil then
+            LKTM_Data_ZoneParser.failedToParse[arg1] = 1
+            return
+        end
+
+        if LKTM_Data_ZoneParser.wantedZones[zoneName] then
+            LKTM_Data_ZoneParser.zoneMap[zoneName:gsub("[%s']", "")] = zoneID
+        end
+    end)
+
+    frame:SetScript("OnUpdate", function(self, elapsed)
+        if LKTM_Data_ZoneParser.phase == 1 then
+            LKTM_Data_ZoneParser.countdown = LKTM_Data_ZoneParser.countdown - elapsed
+
+            if LKTM_Data_ZoneParser.countdown < 0 then
+                local key = LKTM_Data_ZoneParser.zoneNames[LKTM_Data_ZoneParser.curZoneIdx]
+
+                if key then
+                    LKTM_Data:PopUp("Sending Key " .. key)
+                    LKTM:Message(0, "Sending Key " .. key)
+                    LKTM_Data_ZoneParser.countdown = keyDelay
+                    SendChatMessage(".lookup area " .. key, "whisper", nil, UnitName("player"))
+                    LKTM_Data_ZoneParser.curZoneIdx = LKTM_Data_ZoneParser.curZoneIdx + 1
+                else
+                    LKTM_Data_ZoneParser.phase = 2
+                    LKTM_Data:PopUp("All keys sent, waiting for results")
+                end
+            end
+        elseif LKTM_Data_ZoneParser.phase == 2 then
+            LKTM_Data_ZoneParser.phase = 3
+            frame:UnregisterEvent("CHAT_MSG_SYSTEM")
+            frame:SetScript("OnUpdate", nil)
+            frame:SetScript("OnEvent", nil)
+            LKTM:Message(0, "TaxiNode Responses Completed")
+            LKTM_Data_ZoneToID = LKTM_Data_ZoneParser.zoneMap
+            LKTM_Data:PopUp("Zone Map Saved to LKTM_Data_ZoneToID")
+        end
+    end)
+
+    LKTM_Data:PopUp("LordKator_TrinityMagicData Parsing Zones")
 end
