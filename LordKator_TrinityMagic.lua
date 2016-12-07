@@ -48,12 +48,21 @@ LKTM = {
                     local zx,zy=self:GZP(self.MaI,wx,wy)
                     local zoneId = LKTM_Data:findAreaId(self.COTF)
                     if zoneId then
-                        LKTM:CommandOnUnit("player", format(".go zonexy %.2f %.2f %s\n", zx, zy, zoneId))
+                        pcall(function() NxMap1:Hide() end)
+                        LKTM:CommandOnUnit("player", format(".go zonexy %.4f %.4f %s\n", zx, zy, zoneId))
                     else
                         LKTM:Message(0, "Sorry can't map [" .. self.COTF .. "] to a zoneId")
                     end
                 end
-                LKTM:Message(0, "Hooked Carbonite Map, try the Goto function!")
+                local menuText = "Goto"
+                local ok, ret = pcall(function()
+                    Nx.Map.Map1[1].Men.Ite1[1].Tex = "Teleport..." -- Change "Goto" -> "Teleport..."
+                    table.remove(Nx.Map.Map1[1].Men.Ite1, 2) -- Delete "Clear Goto" entry
+                end)
+                if ok then
+                    menuText = "Teleport..."
+                end
+                LKTM:Message(0, "Hooked Carbonite map menu, right click the map and select " .. menuText)
             end
         end
     },
@@ -144,7 +153,8 @@ function LKTM:Message(level, msg, whisperTo, whisperMsg)
     end
 
     if msg then
-        (LKTM:GetActiveChatFrame()):AddMessage(string.format("%s =LKTM= %s", date("%H:%M:%S"), msg), 1, 0, 1)
+        local displayMsg, _ = msg:gsub("\n$","");
+        (LKTM:GetActiveChatFrame()):AddMessage(string.format("%s =LKTM= %s", date("%H:%M:%S"), displayMsg), 1, 0, 1)
     end
 
     if whisperTo and (whisperMsg or msg) then
@@ -244,7 +254,9 @@ function LKTM:GotoTaxiNode(nodeEntry)
 end
 
 function LKTM:CommandOnUnit(unit, command)
-    LKTM:Message(0, "Run Command: [" .. command .. "] on " .. UnitName(unit))
+    local displayCmd, _ = command:gsub("\n$", "");
+
+    LKTM:Message(0, "Run Command: [" .. displayCmd .. "] on " .. UnitName(unit))
 
     if unit ~= "target" and UnitIsPlayer(unit) then
         command = command .. " " .. UnitName(unit)
