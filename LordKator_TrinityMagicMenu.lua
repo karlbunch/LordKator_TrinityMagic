@@ -44,7 +44,11 @@ LKTMM = {
         [".tele name $home"] = {
             tooltipTitle = "Instant Hearth",
             tooltipText = "Return target to their hearth.",
-        }
+        },
+        [".gobject add temp 187299 300"] = {
+            tooltipTitle = "Spawn Guild Vault",
+            tooltipText = "Spawn a temporary guild vault.",
+        },
     },
 }
 
@@ -344,6 +348,7 @@ function LKTMM:InitializeDropDown(frame, level) -- luacheck: no unused args
         if GetNumPartyMembers() > 0 then
             menu:addCommand(1, ".group summon")
         end
+        menu:addCommand(1, ".gobject add temp 187299 300")
         menu:addCommand(1, ".tele name $home")
     elseif UnitIsPlayer("target") then
         menu:addCommand(1, ".appear"):addCommand(1, ".summon")
