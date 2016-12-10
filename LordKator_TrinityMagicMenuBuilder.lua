@@ -50,10 +50,11 @@ function LKTMM_MenuBuilder:addItems(menuLevel, items, menuValue)
     return self
 end
 
-function LKTMM_MenuBuilder:addFlyout(menuLevel, menuText, tooltipText, menuValue, targetMenuValue)
+function LKTMM_MenuBuilder:addFlyout(menuLevel, menuText, tooltipText, menuValue, targetMenuValue, onClick)
     local i = self:InitInfo(menuText, tooltipText)
     i.hasArrow = 1
     i.value = menuValue
+    i.func = onClick
     return self:addToMenu(menuLevel, i, targetMenuValue)
 end
 

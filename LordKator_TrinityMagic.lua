@@ -298,6 +298,126 @@ function LKTM:SetGlobalPreference(key, value)
     return value, oldValue
 end
 
+-- User waypoint functions
+function LKTM:UserWaypointNew(note, specificKey)
+    local wp = {}
+    local mx, my = GetPlayerMapPosition("player")
+    wp.key = "waypoint-" .. (specificKey or string.format("%X", 2^31*random()))
+    wp.note = note
+    wp.zone = {
+        x = mx * 100.0,
+        y = my * 100.0,
+        zoneId = LKTM_Data:findAreaId(GetZoneText()),
+    }
+    LKTM:UserWaypointFormatName(wp)
+
+    local wpList = LKTM:GetGlobalPreference("userWaypoints")
+
+    wpList[wp.key] = wp
+
+    LKTM_Query:getGPS("", wp, function(status, gps, wp) LKTM:UserWaypointSetWithGPS(wp, gps) end)
+
+    return wp
+end
+
+function LKTM:UserWaypointFromHandle(wpHandle)
+    local wpList = LKTM:UserWaypointGetList()
+    local wpKey = type(wpHandle) == "string" and wpHandle or wpHandle.key
+    local wp = wpList[wpKey]
+
+    if wp == nil then
+        wp = LKTM:UserWaypointNew()
+        wpList[wpKey] = wp
+    end
+
+    return wp
+end
+
+function LKTM:UserWaypointDelete(wpHandle)
+    local wp = LKTM:UserWaypointFromHandle(wpHandle)
+    local wpList = LKTM:UserWaypointGetList()
+    if wpList[wp.key] then
+        wpList[wp.key] = nil
+    end
+end
+
+function LKTM:UserWaypointGetList()
+    local wpList = LKTM:GetGlobalPreference("userWaypoints")
+
+    if wpList == nil then
+        wpList = {}
+        LKTM:SetGlobalPreference("userWaypoints", wpList)
+    end
+
+    return wpList
+end
+
+function LKTM:UserWaypointFormatName(wp)
+    if wp.map then
+        wp.name = string.format("%s <%s:%s:%s @ %.01f,%.01f>",
+            wp.note or "",
+            wp.map.name or "-",
+            wp.map.zoneName or "-",
+            wp.map.areaName or "-",
+            wp.zone and wp.zone.x or wp.map.x or 0.0,
+            wp.zone and wp.zone.y or wp.map.y or 0.0
+        )
+        -- TODO: wpToolTipText ? detailed description of location
+    else
+        local name = GetZoneText()
+
+        if wp.zone.x == 0 and wp.zone.y == 0 then
+            name = "<" .. name .. " - Instance>"
+        else
+            name = string.format("<%s @ %.01f,%.01f>", name, wp.zone.x, wp.zone.y)
+        end
+
+        wp.name = (wp.note or "") .. " " .. name
+    end
+end
+
+function LKTM:UserWaypointSetWithGPS(wpHandle, gps)
+    local wp = LKTM:UserWaypointFromHandle(wpHandle)
+    wp.gpsResult = gps
+    wp.map = {
+        x = tonumber(gps.mapPosition.x),
+        y = tonumber(gps.mapPosition.y),
+        z = tonumber(gps.mapPosition.z),
+        o = tonumber(gps.mapPosition.o),
+        id = tonumber(gps.mapPosition.mapId),
+        name = gps.mapPosition.mapName,
+        zoneId = tonumber(gps.mapPosition.zoneId),
+        zoneName = gps.mapPosition.zoneName,
+        areaId = tonumber(gps.mapPosition.areaId),
+        areaName = gps.mapPosition.areaName,
+    }
+    wp.zone = {
+        x = tonumber(gps.gridPosition.zone.x),
+        y = tonumber(gps.gridPosition.zone.y),
+        zoneId = tonumber(gps.mapPosition.zoneId),
+    }
+    LKTM:UserWaypointFormatName(wp)
+end
+
+function LKTM:UserWaypointSetNote(wpHandle, note)
+    local wp = LKTM:UserWaypointFromHandle(wpHandle)
+    wp.note = note
+    LKTM:UserWaypointFormatName(wp)
+end
+
+function LKTM:UserWaypointGoto(wp)
+    local m = wp.map
+    if m ~= nil then
+        LKTM:CommandOnUnit("player", format(".go xyz %.4f %.4f %.4f %d %.4f\n", m.x, m.y, m.z, m.id, m.o))
+    elseif wp.zone and wp.zone.zoneId then
+        LKTM:CommandOnUnit("player", format(".go zonexy %.4f %.4f %d\n", wp.zone.x, wp.zone.y, wp.zone.zoneId))
+    else
+        LKTM:Message(0, "=ERROR=: Sorry this waypoint doesn't have enough data to teleport to it! - key: " .. wp.key)
+    end
+end
+
+-- NPC functions
+
 function LKTM:CopyNPC(frame, unitName)
     LKTM.copyNPCstate = {
         startTime = GetTime(),
@@ -416,6 +536,28 @@ function LKTM:pairsByKeys(t, f)
         else
             return a[i], t[a[i]]
         end
+    end
+end
+
+function LKTM:dumpObject(obj, save)
+    if LKTM_Inspect ~= nil then
+        local istr = LKTM_Inspect(obj)
+        local num_lines = select(2, istr:gsub('\n', '\n'))
+
+        if num_lines <= 55 then
+            LordKator_TrinityMagicConfirm:message("LKTM:dumpObject: " .. istr .. "\n")
+        else
+            istr = istr .. "\n" .. num_lines .. " line(s) dumped"
+            for ln in istr:gmatch("([^\r\n]*)[\r\n]") do
+                (LKTM:GetActiveChatFrame()):AddMessage(ln, 1, 1, 1)
+            end
+        end
+    else
+        UIParentLoadAddOn("Blizzard_DebugTools");
+        DevTools_Dump(msg);
+    end
+    if save then
+        LKTM:SetGlobalPreference("lastDumpedObject", obj)
     end
 end
 

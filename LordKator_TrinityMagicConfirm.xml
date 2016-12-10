@@ -7,7 +7,7 @@
         <Anchors>
             <Anchor point="CENTER" />
         </Anchors>
-        <Backdrop bgFile="Interface\DialogFrame\UI-DialogBox-Background" edgeFile="Interface\DialogFrame\UI-DialogBox-Border" tile="true">
+        <Backdrop bgFile="Interface\DialogFrame\UI-DialogBox-Background-Dark" edgeFile="Interface\DialogFrame\UI-DialogBox-Border" tile="true">
             <BackgroundInsets>
                 <AbsInset left="11" right="12" top="12" bottom="11"/>
             </BackgroundInsets>
@@ -91,13 +91,35 @@
                 self.stringHeight = self.text:GetStringHeight()
                 self.confirmMacro = function(self, text, macroText, confirmPostClick)
                     local _, numLines = text:gsub("\n", "\n")
+                    self.text:SetJustifyH("CENTER")
                     self.text:SetText(text)
                     self.button1:SetText(YES)
+                    self.button1:ClearAllPoints()
+                    self.button1:SetPoint("RIGHT", self, "CENTER", -8, 0)
+                    self.button1:SetPoint("BOTTOM", self, "BOTTOM", 0, 16)
+                    self.button1:Show()
                     self.button2:SetText(NO)
+                    self.button2:ClearAllPoints()
+                    self.button2:SetPoint("LEFT", self, "CENTER", -8, 0)
+                    self.button2:SetPoint("BOTTOM", self, "BOTTOM", 0, 16)
+                    self.button2:Show()
                     self:SetSize(max(self.text:GetStringWidth() + 20, self:GetWidth()), (self.stringHeight * (numLines+2)) + self.button1:GetHeight() + 28)
                     self.button1:SetAttribute("type1", "macro")
                     self.button1:SetAttribute("macrotext", macroText)
                     self.button1:SetScript("PostClick", function(self) self:GetParent():Hide(); if confirmPostClick then confirmPostClick() end end)
+                    self:Show()
+                end
+                self.message = function(self, text)
+                    local _, numLines = text:gsub("\n", "\n")
+                    self.text:SetJustifyH("LEFT")
+                    self.text:SetText(text)
+                    self.button1:Hide()
+                    self.button2:SetText("OK")
+                    self.button2:ClearAllPoints()
+                    self.button2:SetPoint("CENTER", self, "CENTER", 0, 0)
+                    self.button2:SetPoint("BOTTOM", self, "BOTTOM", 0, 16)
+                    self.button2:Show()
+                    self:SetSize(max(self.text:GetStringWidth() + 20, self:GetWidth()), (self.stringHeight * (numLines+2)) + self.button1:GetHeight() + 28)
                     self:Show()
                 end
             </OnLoad>

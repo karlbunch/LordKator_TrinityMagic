@@ -9,4 +9,6 @@ LordKator_TrinityMagicData.lua
 LordKator_TrinityMagicMenuBuilder.lua
 LordKator_TrinityMagicMenu.lua
 LordKator_TrinityMagicConfirm.xml
+LordKator_TrinityMagicQuery.lua
 LordKator_TrinityMagic.xml
+inspect.lua

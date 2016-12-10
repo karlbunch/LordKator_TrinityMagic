@@ -228,9 +228,11 @@ function LKTMM:BuildNPCToolsMenu(menu)
     for _,v in LKTM:pairsByKeys(npcList, sortNPC) do
         local npcMenuValue = "NPCToolsMenuNPC" .. v.entryID
 
-        menu:addFlyout(2, v.unitName, "", npcMenuValue, menuValue)
-
-        menu:addTitle(3, v.unitName, npcMenuValue)
+        menu:addFlyout(2, v.unitName, "", npcMenuValue, menuValue, function(self, arg1, arg2, checked)
+            LKTM:CommandOnUnit("player", ".npc add temp loot " .. v.entryID)
+            CloseDropDownMenus()
+        end)
+        :addTitle(3, v.unitName, npcMenuValue)
         :addItem(3, "Spawn NPC", "Spawn this NPC at your position.", {
             arg1 = v.entryID,
             func = function(self, arg1, arg2, checked)
@@ -247,6 +249,71 @@ function LKTMM:BuildNPCToolsMenu(menu)
                 CloseDropDownMenus()
             end
         }, npcMenuValue)
+    end
+end
+
+function LKTMM:BuildWaypointMenu(menu)
+    local menuValue = "WaypointToolsMenu"
+
+    menu:addFlyout(1, "Waypoint Tools", "Tools for working with Waypoint's", menuValue)
+
+    menu:addTitle(2, "Saved Waypoint's", menuValue)
+        :addItem(2, "Save waypoint", "Save current location as a waypoint", {
+            func = function()
+                CloseDropDownMenus()
+                StaticPopup_Show("LKTMM_PromptWaypointName", "", "", LKTM:UserWaypointNew())
+            end
+        }, menuValue)
+
+    local wpList = LKTM:UserWaypointGetList()
+
+    if wpList == nil then
+        return
+    end
+
+    local sortWaypoint = function(a,b)
+        local wpa, wpb = wpList[a], wpList[b]
+
+        if wpa.map == nil or wpb.map == nil then
+            return wpa.name < wpb.name
+        end
+
+        if wpa.map.name == wpb.map.name then
+            if wpa.map.zoneName == wpb.map.zoneName then
+                if wpa.map.areaName == wpb.map.areaName then
+                    return wpa.name < wpb.name
+                else
+                    return wpa.map.areaName < wpa.map.areaName
+                end
+            else
+                return wpa.map.zoneName < wpb.map.zoneName
+            end
+        end
+
+        return wpa.map.name < wpb.map.name
+    end
+
+    for _,v in LKTM:pairsByKeys(wpList, sortWaypoint) do
+        local wpMenuValue = menuValue .. v.key
+
+        menu:addFlyout(2, v.name, "", wpMenuValue, menuValue, function(self, arg1, arg2, checked)
+                LKTM:UserWaypointGoto(v)
+            end)
+        :addTitle(3, v.name, wpMenuValue)
+        :addItem(3, "Teleport to waypoint", "Teleport to this waypoint.", {
+            arg1 = v,
+            func = function(self, arg1, arg2, checked)
+                LKTM:UserWaypointGoto(arg1)
+                CloseDropDownMenus()
+            end
+        }, wpMenuValue)
+        :addItem(3, "Forget Waypoint", "Forget this Waypoint.", {
+            arg1 = v,
+            func = function(self, arg1, arg2, checked)
+                LKTM:UserWaypointDelete(arg1)
+                CloseDropDownMenus()
+            end
+        }, wpMenuValue)
     end
 end
 
@@ -273,6 +340,7 @@ function LKTMM:InitializeDropDown(self, level)
 
     -- Context Sensitive Items
     if UnitIsUnit("player", "target") then
+        LKTMM:BuildWaypointMenu(menu)
         LKTMM:BuildTaxiMenu(menu)
         LKTMM:BuildNPCToolsMenu(menu)
         LKTMM:BuildQuestMenu(menu)
@@ -293,6 +361,10 @@ function LKTMM:InitializeDropDown(self, level)
         menu:addItem(1, "Save: " .. unitName, "Save NPC so you can summon it later.", {
                 arg1 = unitName,
                 func = function(frame) LKTM:CopyNPC(frame, unitName) end
+            })
+        :addItem(1, "Waypoint: " .. unitName, "Save waypoint at this NPC so you can teleport to it later.", {
+                arg1 = unitName,
+                func = function(frame) LKTM:UserWaypointNew(unitName, unitName) end
             })
         :addCommand(1, ".die")
     end
@@ -357,3 +429,25 @@ function LKTMM:Show(parent, unit)
     UIDropDownMenu_Initialize(LordKator_TrinityMagicMenuDropDown, function(frame, level, menuList) LKTMM:InitializeDropDown(frame, level, menuList) end, "MENU")
     ToggleDropDownMenu(1, nil, LordKator_TrinityMagicMenuDropDown, anchorName, xOfs, yOfs)
 end
+
+StaticPopupDialogs["LKTMM_PromptWaypointName"] = {
+    text = "Waypoint Note:",
+    button1 = "Save Note",
+    button2 = "None",
+    hasEditBox = 1,
+    whileDead = 1,
+    hideOnEscape = 1,
+    timeout = 20,
+    OnShow = function(self, data)
+        -- getglobal(this:GetName().."EditBox"):SetText(data.name)
+    end,
+    OnAccept = function(self, data)
+        local newName = self.editBox:GetText();
+        LKTM:UserWaypointSetNote(data, newName)
+    end,
+    EditBoxOnEnterPressed = function(self, data)
+        local newName = self:GetParent().editBox:GetText();
+        LKTM:UserWaypointSetNote(data, newName)
+        self:GetParent():Hide();
+    end,
+}
