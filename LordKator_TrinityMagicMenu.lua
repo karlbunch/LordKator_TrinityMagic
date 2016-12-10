@@ -172,8 +172,29 @@ function LKTMM:BuildQuestMenu(menu)
 
             local questMenuValue = "QuestMenu" .. questID
 
+            local c = GetQuestDifficultyColor(level)
+            questTitle = format("|cff%02x%02x%02x%s|r", c.r * 255, c.g * 255, c.b * 255, questTitle)
+
+            local partyOnQuest = {}
+            for j=1, MAX_PARTY_MEMBERS, 1 do
+                local unit = "party" .. j
+
+                if UnitInParty(unit) and IsUnitOnQuest(i, unit) then
+                    local name = UnitName(unit)
+                    table.insert(partyOnQuest, name)
+                end
+            end
+
+            if #partyOnQuest > 0 then
+                questTitle = "(" .. #partyOnQuest .. ") " .. questTitle
+            end
+
             menu:addFlyout(2, questTitle .. (questTag and (" |cffffff00" .. questTag .."|r") or "") .. (isComplete and " (|cff00ff00complete|r)" or ""), "", questMenuValue, menuValue)
                 :getLastItem().arg1 = questID
+
+            if #partyOnQuest > 0 then
+                menu:getLastItem().tooltipText = "Also on quest:\n\n" .. table.concat(partyOnQuest, ", ")
+            end
 
             menu:addTitle(3, questTitle, questMenuValue)
                 :addItem(3, "Complete quest", "Complete this quest for " .. UnitName("target") .. ".", {
