@@ -4,7 +4,7 @@
 ## Notes: Makes playing on a TC server much more fun
 ## Author: Lord Kator aka Karl Bunch
 ## SavedVariables: LordKator_TrinityMagic_Prefs_Global
-## SavedVariablesPerCharacter:
+## SavedVariablesPerCharacter: LordKator_TrinityMagic_Prefs_Character
 LordKator_TrinityMagicData.lua
 LordKator_TrinityMagicMenuBuilder.lua
 LordKator_TrinityMagicMenu.lua

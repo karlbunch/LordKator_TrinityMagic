@@ -1,4 +1,4 @@
--- 
+--
 -- LordKator_TrinityMagicQuery.lua - Simple Trinity Core Query Functions
 --
 LKTM_Query = { queue = {}, history = {} }
@@ -54,6 +54,8 @@ function LKTM_Query:getGPS(args, data, callback)
         data = data,
         command = ".gps " .. args .. "\n",
         patterns = {
+            -- luacheck: ignore 432 shadowing upvalue argument self
+            -- luacheck: ignore 212 unused variable length argument
             -- LANG_GPS_POSITION_OUTDOORS = 5042
             -- You are outdoors.
             -- LANG_GPS_POSITION_INDOORS = 5043
@@ -137,7 +139,7 @@ function LKTM_Query:RunQuery(q)
     q.isStarted = 0
     q.isComplete = 0
     q.runTimeQueue = time()
-    
+
     if q.suppressChat == nil then
         q.suppressChat = 1
     end
@@ -147,6 +149,7 @@ function LKTM_Query:RunQuery(q)
     if #LKTM_Query.queue == 1 then
         ChatFrame_AddMessageEventFilter("CHAT_MSG_SYSTEM", LKTM_Query.ParseSystemChat)
         LKTM:CommandOnUnit("player", q.command)
+        -- luacheck: globals LordKator_TrinityMagic
         LordKator_TrinityMagic:HookScript("OnUpdate", LKTM_Query.OnUpdate)
     end
 
@@ -202,7 +205,7 @@ function LKTM_Query:OnUpdate(elapsed)
     LKTM_Query:RemoveCurrentQuery()
 end
 
-function LKTM_Query:ParseSystemChat(event, message)
+function LKTM_Query:ParseSystemChat(event, message) -- luacheck: no unused args
     local q = LKTM_Query:GetCurrentQuery()
 
     if not q then

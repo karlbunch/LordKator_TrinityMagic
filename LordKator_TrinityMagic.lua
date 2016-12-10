@@ -19,27 +19,37 @@ SLASH_LORDKATOR_TRINITYMAGIC_ONALL1 = "/onall"
 BINDING_HEADER_LKTMHEADER = "Lord Kator's Trinity Magic"
 BINDING_NAME_LKTMBINDING1 = "Open Chat with DOT"
 
-local defaultCommandKey = 'ctrl-command1'
+local kPrefDefaultCommand = 'ctrl-command1'
+local kPrefDefaultCommandHistory = 'ctrl-command1-history'
+local kPrefTaxiHistory = "taxiHistory"
+local kPrefSavedNPClist = "savedNPClist"
+local kPrefUserWaypoints = "userWaypoints"
 
 LKTM = {
     version = "0.0.1",
     debugLevel = 8,
-    defaults = {
-        [defaultCommandKey] = "should use " .. SLASH_LORDKATOR_TRINITYMAGIC1 .. ' [setcmd|prompt] first!',
-        [defaultCommandKey .. '-history'] = {},
-        taxiHistory = {},
-        savedNPClist = {},
+    globalDefaults = {
+        [kPrefDefaultCommand] = "should use " .. SLASH_LORDKATOR_TRINITYMAGIC1 .. ' [setcmd|prompt] first!',
+        [kPrefDefaultCommandHistory] = {},
+    },
+
+    characterDefaults = {
+        [kPrefTaxiHistory] = {},
+        [kPrefSavedNPClist] = {},
+        [kPrefUserWaypoints] = {},
     },
 
     eventHandlers = {
-        ["PLAYER_ENTERING_WORLD"] = function(self, event, arg1, arg2, arg3, arg4, arg5)
+        ["PLAYER_ENTERING_WORLD"] = function()
             LKTM:SetupPostClicks()
         end,
 
-        ["PARTY_MEMBERS_CHANGED"] = function(self, event, arg1, arg2, arg3, arg4, arg5)
+        ["PARTY_MEMBERS_CHANGED"] = function()
             LKTM:SetupPostClicks()
         end,
-        ["VARIABLES_LOADED"] = function(self, event, ...)
+        ["VARIABLES_LOADED"] = function()
+            LKTM:ConvertPreferences()
+
             -- Hook Carbonite Map so Goto takes you directly to the location
             LKTM.carbonite_STAC = Nx.Map.STAC
             if LKTM.carbonite_STAC then
@@ -55,7 +65,7 @@ LKTM = {
                     end
                 end
                 local menuText = "Goto"
-                local ok, ret = pcall(function()
+                local ok, _ = pcall(function()
                     Nx.Map.Map1[1].Men.Ite1[1].Tex = "Teleport..." -- Change "Goto" -> "Teleport..."
                     table.remove(Nx.Map.Map1[1].Men.Ite1, 2) -- Delete "Clear Goto" entry
                 end)
@@ -71,12 +81,12 @@ LKTM = {
         ["help"] = {
             usage = "- List available sub-commands to " .. SLASH_LORDKATOR_TRINITYMAGIC1 .. " or " .. SLASH_LORDKATOR_TRINITYMAGIC2 .. " chat commands",
 
-            cmd = function(args)
+            cmd = function()
                 LKTM:Message(0, "HELP: Available " .. SLASH_LORDKATOR_TRINITYMAGIC1 .. " or " .. SLASH_LORDKATOR_TRINITYMAGIC2 .. " commands:")
 
-                cmds = { }
+                local cmds = { }
 
-                for cmd, v in pairs(LKTM.slashCommands) do
+                for cmd, _ in pairs(LKTM.slashCommands) do
                     table.insert(cmds, cmd)
                 end
 
@@ -107,7 +117,7 @@ LKTM = {
         ["version"] = {
             usage = "- Show currently running version",
 
-            cmd = function(args) LKTM:Message(0, "Version " .. LKTM.version) end
+            cmd = function() LKTM:Message(0, "Version " .. LKTM.version) end
         },
 
         ["setcmd"] = {
@@ -132,7 +142,7 @@ LKTM = {
         ["prompt"] = {
             usage = "- set the command for a macro run",
 
-            cmd = function(args)
+            cmd = function()
                 LKTM:PromptForCommand()
             end
         },
@@ -140,7 +150,7 @@ LKTM = {
         ["do"] = {
             usage = "- execute cmd",
 
-            cmd = function(args)
+            cmd = function()
                 LKTM:DefaultCommandOnUnit("target", nil)
             end
         },
@@ -172,7 +182,7 @@ function LKTM:GetActiveChatFrame()
     return DEFAULT_CHAT_FRAME
 end
 
-function LKTM:UnitFramePostClick(self, unit, button)
+function LKTM:UnitFramePostClick(frame, unit, button)
     if not IsControlKeyDown() then
         return
     end
@@ -185,52 +195,79 @@ function LKTM:UnitFramePostClick(self, unit, button)
     if button == "RightButton" then
         CloseDropDownMenus()
         LKTM:Message(9, "Show LKTM Menu for " .. unit)
-        LKTMM:Show(self, unit)
+        LKTMM:Show(frame, unit)
         return
     end
 end
 
 function LKTM:SetupPostClicks()
-    PlayerFrame:SetScript("PostClick", function(self, button) LKTM:UnitFramePostClick(self, "player", button) end)
+    PlayerFrame:SetScript("PostClick", function(frame, button) LKTM:UnitFramePostClick(frame, "player", button) end)
     PlayerFrame:SetAttribute("ctrl-type2", "target");
 
-    TargetFrame:SetScript("PostClick", function(self, button) LKTM:UnitFramePostClick(self, "target", button) end)
+    TargetFrame:SetScript("PostClick", function(frame, button) LKTM:UnitFramePostClick(frame, "target", button) end)
     TargetFrame:SetAttribute("ctrl-type2", "target");
 
     for i=1, MAX_PARTY_MEMBERS, 1 do
         local partyMemberFrame = _G["PartyMemberFrame"..i]
 
         if partyMemberFrame then
-            partyMemberFrame:SetScript("PostClick", function(self, button) LKTM:UnitFramePostClick(self, "party"..i, button) end)
+            partyMemberFrame:SetScript("PostClick", function(frame, button) LKTM:UnitFramePostClick(frame, "party"..i, button) end)
             partyMemberFrame:SetAttribute("ctrl-type2", "target");
         end
     end
 end
 
 function LKTM:SetDefaultCommand(newCommand)
-    LKTM:SetGlobalPreference(defaultCommandKey, newCommand)
+    LKTM:SetGlobalPreference(kPrefDefaultCommand, newCommand)
 
-    if newCommand ~= LKTM.defaults[defaultCommandKey] then
-        local history = LKTM:GetGlobalPreference(defaultCommandKey .. '-history') or {}
+    if newCommand ~= LKTM.defaults[kPrefDefaultCommand] then
+        local history = LKTM:GetCommandHistory()
         if history[newCommand] then
             history[newCommand] = history[newCommand] + 1
         else
             history[newCommand] = 1
         end
-        LKTM:SetGlobalPreference(defaultCommandKey .. '-history', history)
     end
 end
 
-function LKTM:DefaultCommandOnUnit(unit, button)
-    LKTM:CommandOnUnit(unit, LKTM:GetGlobalPreference(defaultCommandKey))
+function LKTM:DefaultCommandOnUnit(unit, button) -- luacheck: no unused args
+    LKTM:CommandOnUnit(unit, LKTM:GetGlobalPreference(kPrefDefaultCommand))
 end
 
 function LKTM:GetCommandHistory()
-    return LKTM:GetGlobalPreference(defaultCommandKey .. '-history') or {}
+    local key = kPrefDefaultCommandHistory
+    local list = LKTM:GetGlobalPreference(key)
+
+    if list == nil then
+        list = {}
+        LKTM:SetGlobalPreference(key, list)
+    end
+
+    return list
 end
 
 function LKTM:GetTaxiHistory()
-    return LKTM:GetGlobalPreference("taxiHistory") or {}
+    local key = kPrefTaxiHistory
+    local list = LKTM:GetCharacterPreference(key)
+
+    if list == nil then
+        list = {}
+        LKTM:SetCharacterPreference(key, list)
+    end
+
+    return list
+end
+
+function LKTM:GetSavedNPClist()
+    local key = kPrefSavedNPClist
+    local list = LKTM:GetCharacterPreference(key)
+
+    if list == nil then
+        list = {}
+        LKTM:SetCharacterPreference(key, list)
+    end
+
+    return list
 end
 
 function LKTM:GotoTaxiNode(nodeEntry)
@@ -250,7 +287,7 @@ function LKTM:GotoTaxiNode(nodeEntry)
         }
     end
 
-    LKTM:SetGlobalPreference("taxiHistory", history)
+    LKTM:SetCharacterPreference(kPrefTaxiHistory, history)
 end
 
 function LKTM:CommandOnUnit(unit, command)
@@ -270,6 +307,9 @@ function LKTM:PromptForCommand()
     StaticPopup_Show("LKTM_PromptCmd")
 end
 
+-- --------------------- --
+-- Preferences Functions --
+-- --------------------- --
 function LKTM:IsGlobalPreferenceSet(key)
     if LordKator_TrinityMagic_Prefs_Global and LordKator_TrinityMagic_Prefs_Global[key] then
         return 1
@@ -280,9 +320,9 @@ end
 
 function LKTM:GetGlobalPreference(key)
     if LordKator_TrinityMagic_Prefs_Global then
-        return LordKator_TrinityMagic_Prefs_Global[key] or LKTM.defaults[key]
+        return LordKator_TrinityMagic_Prefs_Global[key] or LKTM.globalDefaults[key]
     else
-        return LKTM.defaults[key]
+        return LKTM.globalDefaults[key]
     end
 end
 
@@ -290,10 +330,57 @@ function LKTM:SetGlobalPreference(key, value)
     local oldValue = LKTM:GetGlobalPreference(key)
 
     if LordKator_TrinityMagic_Prefs_Global == nil then
-        LordKator_TrinityMagic_Prefs_Global = { _preferencesVersion = 1 }
+        LordKator_TrinityMagic_Prefs_Global = { _preferencesVersion = 2 }
     end
 
     LordKator_TrinityMagic_Prefs_Global[key] = value
+
+    return value, oldValue
+end
+
+function LKTM:ConvertPreferences()
+    if LordKator_TrinityMagic_Prefs_Global and LordKator_TrinityMagic_Prefs_Global["_preferencesVersion"] >= 2 then
+        return
+    end
+
+    if LordKator_TrinityMagic_Prefs_Global["_preferencesVersion"] == 1 then
+        -- Version 1 to 2 - Move some global settings to the character
+        LordKator_TrinityMagic_Prefs_Character = { _preferencesVersion = 2 }
+        for _, key in pairs({ kPrefTaxiHistory, kPrefSavedNPClist, kPrefUserWaypoints }) do
+            if LordKator_TrinityMagic_Prefs_Global[key] then
+                LordKator_TrinityMagic_Prefs_Character[key] = LordKator_TrinityMagic_Prefs_Global[key]
+                LordKator_TrinityMagic_Prefs_Global[key] = nil
+            end
+        end
+        LordKator_TrinityMagic_Prefs_Global["_preferencesVersion"] = 2
+        LKTM:Message(0, "=INFO=: Converted preferences to version 2")
+    end
+end
+
+function LKTM:IsCharacterPreferenceSet(key)
+    if LordKator_TrinityMagic_Prefs_Character and LordKator_TrinityMagic_Prefs_Character[key] then
+        return 1
+    end
+
+    return nil
+end
+
+function LKTM:GetCharacterPreference(key)
+    if LordKator_TrinityMagic_Prefs_Character then
+        return LordKator_TrinityMagic_Prefs_Character[key] or LKTM.characterDefaults[key]
+    else
+        return LKTM.characterDefaults[key]
+    end
+end
+
+function LKTM:SetCharacterPreference(key, value)
+    local oldValue = LKTM:GetCharacterPreference(key)
+
+    if LordKator_TrinityMagic_Prefs_Character == nil then
+        LordKator_TrinityMagic_Prefs_Character = { _preferencesVersion = 2 }
+    end
+
+    LordKator_TrinityMagic_Prefs_Character[key] = value
 
     return value, oldValue
 end
@@ -311,11 +398,12 @@ function LKTM:UserWaypointNew(note, specificKey)
     }
     LKTM:UserWaypointFormatName(wp)
 
-    local wpList = LKTM:GetGlobalPreference("userWaypoints")
+    local wpList = LKTM:GetCharacterPreference(kPrefUserWaypoints)
 
     wpList[wp.key] = wp
 
-    LKTM_Query:getGPS("", wp, function(status, gps, wp) LKTM:UserWaypointSetWithGPS(wp, gps) end)
+    -- luacheck: no unused args
+    LKTM_Query:getGPS("", wp, function(status, gps, twp) LKTM:UserWaypointSetWithGPS(twp, gps) end)
 
     return wp
 end
@@ -342,11 +430,11 @@ function LKTM:UserWaypointDelete(wpHandle)
 end
 
 function LKTM:UserWaypointGetList()
-    local wpList = LKTM:GetGlobalPreference("userWaypoints")
+    local wpList = LKTM:GetCharacterPreference(kPrefUserWaypoints)
 
     if wpList == nil then
         wpList = {}
-        LKTM:SetGlobalPreference("userWaypoints", wpList)
+        LKTM:SetCharacterPreference(kPrefUserWaypoints, wpList)
     end
 
     return wpList
@@ -418,7 +506,7 @@ end
 
 -- NPC functions
 
-function LKTM:CopyNPC(frame, unitName)
+function LKTM:CopyNPC(entry, unitName) -- luacheck: no unused args
     LKTM.copyNPCstate = {
         startTime = GetTime(),
         unitName = unitName or UnitName("target"),
@@ -429,7 +517,8 @@ function LKTM:CopyNPC(frame, unitName)
     LKTM:CommandOnUnit("target", ".npc info")
 end
 
-function LKTM:FilterSystemChat (event, message)
+function LKTM:FilterSystemChat (event, message) -- luacheck: no unused args
+    -- luacheck: globals arg1
     -- Look for output of .npc info
     -- LANG_NPCINFO_CHAR (ID 539)
     -- NPC currently selected by player:
@@ -450,7 +539,7 @@ function LKTM:FilterSystemChat (event, message)
     if string.sub(arg1, 1, 33) == "NPC currently selected by player:" then
         LKTM.copyNPCstate.rawLines = {}
     elseif string.sub(arg1, 1, 19) == "MechanicImmuneMask:" then
-        local newList = LKTM:GetGlobalPreference("savedNPClist")
+        local newList = LKTM:GetSavedNPClist()
 
         newList[tostring(LKTM.copyNPCstate.entryID)] = {
             parseTime = tonumber(string.format("%.02f", GetTime() - LKTM.copyNPCstate.startTime)),
@@ -465,7 +554,6 @@ function LKTM:FilterSystemChat (event, message)
             mapAreaId = GetCurrentMapAreaID(),
         }
 
-        LKTM:SetGlobalPreference("savedNPClist", newList)
         LKTM:Message(0, "Saved NPC " .. LKTM.copyNPCstate.unitName)
         LKTM.copyNPCstate = nil
     else
@@ -487,30 +575,30 @@ function LKTM:FilterSystemChat (event, message)
     return true
 end
 
-function LKTM:OnLoad(self)
+function LKTM:OnLoad(frame)
     LKTM:Message(9, "OnLoad Start")
 
     if RegisterAddonMessagePrefix then
         RegisterAddonMessagePrefix("=LKTM=")
     end
 
-    for event, func in pairs(LKTM.eventHandlers) do
+    for event, _ in pairs(LKTM.eventHandlers) do
         LKTM:Message(9, "Listening to " .. event)
-        self:RegisterEvent(event)
+        frame:RegisterEvent(event)
     end
 
     LKTM:SetupPostClicks()
 
-    LKTM_Data:OnLoad(self)
+    LKTM_Data:OnLoad(frame)
 
-    LKTMM:Init(self)
+    LKTMM:Init(frame)
 
     ChatFrame_AddMessageEventFilter("CHAT_MSG_SYSTEM", LKTM.FilterSystemChat)
 
     LKTM:Message(9, "OnLoad Complete")
 end
 
-function LKTM:OnEvent(self, event, ...)
+function LKTM:OnEvent(frame, event, ...)
     local arg1, arg2, arg3, arg4, arg5 = ...
 
     LKTM:Message(10, "OnEvent: " .. (event or "nil") .. "(" .. (arg1 or "nil") .. ", " .. (arg2 or "nil") .. ", " .. (arg3 or "nil") .. ", " .. (arg4 or "nil") .. ", " .. (arg5 or "nil") .. ")")
@@ -518,7 +606,7 @@ function LKTM:OnEvent(self, event, ...)
     local handler = LKTM.eventHandlers[event]
 
     if handler ~= nil then
-        (handler)(self, event, arg1, arg2, arg3, arg4, arg5)
+        (handler)(frame, event, arg1, arg2, arg3, arg4, arg5)
     else
         LKTM:Message(0, "Unexpected Event: " .. event .. "(" .. (arg1 or "nil") .. ", " .. (arg2 or "nil") .. ", " .. (arg3 or "nil") .. ", " .. (arg4 or "nil") .. ", " .. (arg5 or "nil") .. ")")
     end
@@ -554,19 +642,19 @@ function LKTM:dumpObject(obj, save)
         end
     else
         UIParentLoadAddOn("Blizzard_DebugTools");
-        DevTools_Dump(msg);
+        DevTools_Dump(obj);
     end
     if save then
         LKTM:SetGlobalPreference("lastDumpedObject", obj)
     end
 end
 
-SlashCmdList["LORDKATOR_TRINITYMAGIC"] = function(msg, editBox)
+SlashCmdList["LORDKATOR_TRINITYMAGIC"] = function(msg)
     local cmd, args = msg:match("^(%S+)%s*(.*)$")
 
     cmd = string.lower(cmd or "help")
 
-    cmdEntry = LKTM.slashCommands[cmd]
+    local cmdEntry = LKTM.slashCommands[cmd]
 
     if cmdEntry ~= nil then
         cmdEntry.cmd(args)
@@ -576,7 +664,7 @@ SlashCmdList["LORDKATOR_TRINITYMAGIC"] = function(msg, editBox)
     end
 end
 
-SlashCmdList["LORDKATOR_TRINITYMAGIC_ONALL"] = function(msg, editBox)
+SlashCmdList["LORDKATOR_TRINITYMAGIC_ONALL"] = function(msg)
     local title, command = string.match(msg, '"(.-)"%s+(.*)')
 
     if not title then
@@ -608,8 +696,8 @@ StaticPopupDialogs["LKTM_PromptCmd"] = {
     OnShow = function()
         local curCmd = ""
 
-        if LKTM:IsGlobalPreferenceSet(defaultCommandKey) then
-            curCmd = LKTM:GetGlobalPreference(defaultCommandKey)
+        if LKTM:IsGlobalPreferenceSet(kPrefDefaultCommand) then
+            curCmd = LKTM:GetGlobalPreference(kPrefDefaultCommand)
         end
         getglobal(this:GetName().."EditBox"):SetText(curCmd)
     end,

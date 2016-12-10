@@ -67,7 +67,7 @@ function LKTMM:BuildTaxiMenu(menu)
                 if item.value == "TaxiMenuHistory" then
                     item.disabled = 1
                 end
-                item.func = function(self, arg1, arg2, checked) LKTM:GotoTaxiNode(self) end,
+                item.func = function(entry) LKTM:GotoTaxiNode(entry) end
                 menu:addToMenu(3, item, menuValue)
             end
         end
@@ -85,7 +85,7 @@ function LKTMM:BuildTaxiMenu(menu)
                 tooltipText = ".go taxinode " .. v.id,
                 arg1 = v.id,
                 notCheckable = 1,
-                func = function(self, arg1, arg2, checked) LKTM:GotoTaxiNode(self) end,
+                func = function(entry) LKTM:GotoTaxiNode(entry) end,
             })
         end
 
@@ -98,7 +98,7 @@ function LKTMM:BuildTaxiMenu(menu)
 
             menu:addItems(3, historyItems, "TaxiMenuHistory")
 
-            for k,v in pairs(menu:getItems(2, "TaxiMenu")) do
+            for _,v in pairs(menu:getItems(2, "TaxiMenu")) do
                 if v.value == "TaxiMenuHistory" then
                     v.disabled = nil
                     break
@@ -108,7 +108,7 @@ function LKTMM:BuildTaxiMenu(menu)
     end
 end
 
-function LKTMM:QuestTool(frame, arg1, arg2, checked)
+function LKTMM:QuestTool(frame, arg1, arg2, checked) -- luacheck: no unused args
     local cmd, unit, title, questLogIndex = strsplit("|", arg1)
     local command = ".quest " .. cmd .. " " .. arg2
 
@@ -148,11 +148,11 @@ function LKTMM:BuildQuestMenu(menu)
 
     menu:addTitle(2, "Quests", menuValue)
 
-    local logItems = {}
     local sectionTitle = nil
     local i=0
     while 1 do
         i = i + 1
+        -- luacheck: ignore 211
         local questTitle, level, questTag, suggestedGroup, isHeader, isCollapsed, isComplete, isDaily, questID, displayQuestID = GetQuestLogTitle(i);
 
         if questTitle == nil then
@@ -175,12 +175,12 @@ function LKTMM:BuildQuestMenu(menu)
                 :addItem(3, "Complete quest", "Complete this quest for " .. UnitName("target") .. ".", {
                     arg1 = "Complete|target|" .. questTitle .. "|" .. i,
                     arg2 = questID,
-                    func = function(self, arg1, arg2, checked) LKTMM:QuestTool(self, arg1, arg2, checked) end,
+                    func = function(entry, arg1, arg2, checked) LKTMM:QuestTool(entry, arg1, arg2, checked) end,
                 }, questMenuValue)
                 :addItem(3, "Remove quest", "Remove this quest from" .. UnitName("target") .. ".", {
                     arg1 = "Remove|target|" .. questTitle .. "|" .. i,
                     arg2 = questID,
-                    func = function(self, arg1, arg2, checked) LKTMM:QuestTool(self, arg1, arg2, checked) end,
+                    func = function(entry, arg1, arg2, checked) LKTMM:QuestTool(entry, arg1, arg2, checked) end,
                 }, questMenuValue)
 
             if GetNumPartyMembers() > 0 then
@@ -188,17 +188,17 @@ function LKTMM:BuildQuestMenu(menu)
                 :addItem(3, "Add to party", "Add this quest to everyone in the party.", {
                     arg1 = "Add|party|" .. questTitle .. "|" .. i,
                     arg2 = questID,
-                    func = function(self, arg1, arg2, checked) LKTMM:QuestTool(self, arg1, arg2, checked) end,
+                    func = function(entry, arg1, arg2, checked) LKTMM:QuestTool(entry, arg1, arg2, checked) end,
                 }, questMenuValue)
                 :addItem(3, "Complete for party", "Complete this quest for everyone.", {
                     arg1 = "Complete|party|" .. questTitle .. "|" .. i,
                     arg2 = questID,
-                    func = function(self, arg1, arg2, checked) LKTMM:QuestTool(self, arg1, arg2, checked) end,
+                    func = function(entry, arg1, arg2, checked) LKTMM:QuestTool(entry, arg1, arg2, checked) end,
                 }, questMenuValue)
                 :addItem(3, "Remove from party", "Remove this quest from everyone.", {
                     arg1 = "Remove|party|" .. questTitle .. "|" .. i,
                     arg2 = questID,
-                    func = function(self, arg1, arg2, checked) LKTMM:QuestTool(self, arg1, arg2, checked) end,
+                    func = function(entry, arg1, arg2, checked) LKTMM:QuestTool(entry, arg1, arg2, checked) end,
                 }, questMenuValue)
             end
         end
@@ -206,7 +206,7 @@ function LKTMM:BuildQuestMenu(menu)
 end
 
 function LKTMM:BuildNPCToolsMenu(menu)
-    local npcList = LKTM:GetGlobalPreference("savedNPClist")
+    local npcList = LKTM:GetSavedNPClist()
 
     local npcCount = 0
     for _,_ in pairs(npcList or {}) do
@@ -228,24 +228,23 @@ function LKTMM:BuildNPCToolsMenu(menu)
     for _,v in LKTM:pairsByKeys(npcList, sortNPC) do
         local npcMenuValue = "NPCToolsMenuNPC" .. v.entryID
 
-        menu:addFlyout(2, v.unitName, "", npcMenuValue, menuValue, function(self, arg1, arg2, checked)
+        menu:addFlyout(2, v.unitName, "", npcMenuValue, menuValue, function()
             LKTM:CommandOnUnit("player", ".npc add temp loot " .. v.entryID)
             CloseDropDownMenus()
         end)
         :addTitle(3, v.unitName, npcMenuValue)
         :addItem(3, "Spawn NPC", "Spawn this NPC at your position.", {
             arg1 = v.entryID,
-            func = function(self, arg1, arg2, checked)
+            func = function(_, arg1)
                 LKTM:CommandOnUnit("player", ".npc add temp loot " .. arg1)
                 CloseDropDownMenus()
             end
         }, npcMenuValue)
         :addItem(3, "Forget NPC", "Forget this NPC.", {
             arg1 = v.entryID,
-            func = function(self, arg1, arg2, checked)
-                local npcList = LKTM:GetGlobalPreference("savedNPClist")
-                npcList[arg1] = nil
-                LKTM:SetGlobalPreference("savedNPClist", npcList)
+            func = function(_, arg1)
+                local list = LKTM:GetSavedNPClist()
+                list[arg1] = nil
                 CloseDropDownMenus()
             end
         }, npcMenuValue)
@@ -296,20 +295,18 @@ function LKTMM:BuildWaypointMenu(menu)
     for _,v in LKTM:pairsByKeys(wpList, sortWaypoint) do
         local wpMenuValue = menuValue .. v.key
 
-        menu:addFlyout(2, v.name, "", wpMenuValue, menuValue, function(self, arg1, arg2, checked)
-                LKTM:UserWaypointGoto(v)
-            end)
+        menu:addFlyout(2, v.name, "", wpMenuValue, menuValue, function() LKTM:UserWaypointGoto(v) end)
         :addTitle(3, v.name, wpMenuValue)
         :addItem(3, "Teleport to waypoint", "Teleport to this waypoint.", {
             arg1 = v,
-            func = function(self, arg1, arg2, checked)
+            func = function(_, arg1)
                 LKTM:UserWaypointGoto(arg1)
                 CloseDropDownMenus()
             end
         }, wpMenuValue)
         :addItem(3, "Forget Waypoint", "Forget this Waypoint.", {
             arg1 = v,
-            func = function(self, arg1, arg2, checked)
+            func = function(_, arg1)
                 LKTM:UserWaypointDelete(arg1)
                 CloseDropDownMenus()
             end
@@ -317,19 +314,19 @@ function LKTMM:BuildWaypointMenu(menu)
     end
 end
 
-function LKTMM:InitializeDropDown(self, level)
+function LKTMM:InitializeDropDown(frame, level) -- luacheck: no unused args
     local menu = LKTMM_MenuBuilder:New()
 
-    menu.addCommand = function (self, menuLevel, command, tipsHint)
+    menu.addCommand = function (thisMenu, menuLevel, command, tipsHint)
         local tips = LKTMM.commandTips[tipsHint] or LKTMM.commandTips[command] or tipsHint
 
         if tips then
-            return self:addItem(menuLevel, tips.tooltipTitle, tips.tooltipText, {
-                func = function(frame) LKTM:CommandOnUnit("target", command) end,
+            return thisMenu:addItem(menuLevel, tips.tooltipTitle, tips.tooltipText, {
+                func = function() LKTM:CommandOnUnit("target", command) end,
             })
         else
-            return self:addItem(menuLevel, command, "", {
-                func = function(frame) LKTM:CommandOnUnit("target", command) end,
+            return thisMenu:addItem(menuLevel, command, "", {
+                func = function() LKTM:CommandOnUnit("target", command) end,
             })
         end
     end
@@ -360,11 +357,11 @@ function LKTMM:InitializeDropDown(self, level)
 
         menu:addItem(1, "Save: " .. unitName, "Save NPC so you can summon it later.", {
                 arg1 = unitName,
-                func = function(frame) LKTM:CopyNPC(frame, unitName) end
+                func = function(entry) LKTM:CopyNPC(entry, unitName) end
             })
         :addItem(1, "Waypoint: " .. unitName, "Save waypoint at this NPC so you can teleport to it later.", {
                 arg1 = unitName,
-                func = function(frame) LKTM:UserWaypointNew(unitName, unitName) end
+                func = function() LKTM:UserWaypointNew(unitName, unitName) end
             })
         :addCommand(1, ".die")
     end
@@ -381,7 +378,7 @@ function LKTMM:InitializeDropDown(self, level)
 
     for cmd, tips in pairs(LKTMM.commandTips) do
         menu:addItem(2, tips.tooltipTitle, tips.tooltipText, {
-            func = function(frame)
+            func = function()
                 LKTM:SetDefaultCommand(cmd)
                 CloseDropDownMenus()
             end
@@ -390,10 +387,10 @@ function LKTMM:InitializeDropDown(self, level)
 
     local history = LKTM:GetCommandHistory()
 
-    for cmd, count in pairs(history) do
+    for cmd,_ in pairs(history) do
         if LKTMM.commandTips[cmd] == nil then
             menu:addItem(2, cmd, "", {
-                func = function(frame)
+                func = function()
                     LKTM:SetDefaultCommand(cmd)
                     CloseDropDownMenus()
                 end
@@ -401,7 +398,7 @@ function LKTMM:InitializeDropDown(self, level)
         end
     end
 
-    menu:addItem(1, CLOSE, "Close Menu", { func = function(frame) CloseDropDownMenus() end })
+    menu:addItem(1, CLOSE, "Close Menu", { func = function() CloseDropDownMenus() end })
 
     if LKTM.debugLevel >= 9 then
         LKTM:SetGlobalPreference("lastMenu", menu:getItems())
@@ -410,10 +407,10 @@ function LKTMM:InitializeDropDown(self, level)
     menu:build(level or 1)
 end
 
-function LKTMM:Init(parent)
+function LKTMM:Init()
 end
 
-function LKTMM:Show(parent, unit)
+function LKTMM:Show(parent, unit) -- luacheck: no unused args
     local anchorName, xOfs, yOfs = "TargetFrame", 120, 10
 
     if UnitIsUnit("player", "target") then
@@ -424,7 +421,7 @@ function LKTMM:Show(parent, unit)
         anchorName, xOfs, yOfs = "PartyMemberFrame" .. string.sub(unit, 6, -1), 47, 15
     end
 
-    local LordKator_TrinityMagicMenuDropDown = CreateFrame("Frame", "LordKator_TrinityMagicMenuDropDown", _G[anchorName], "UIDropDownMenuTemplate") 
+    local LordKator_TrinityMagicMenuDropDown = CreateFrame("Frame", "LordKator_TrinityMagicMenuDropDown", _G[anchorName], "UIDropDownMenuTemplate")
 
     UIDropDownMenu_Initialize(LordKator_TrinityMagicMenuDropDown, function(frame, level, menuList) LKTMM:InitializeDropDown(frame, level, menuList) end, "MENU")
     ToggleDropDownMenu(1, nil, LordKator_TrinityMagicMenuDropDown, anchorName, xOfs, yOfs)
@@ -438,9 +435,11 @@ StaticPopupDialogs["LKTMM_PromptWaypointName"] = {
     whileDead = 1,
     hideOnEscape = 1,
     timeout = 20,
+    --[[
     OnShow = function(self, data)
-        -- getglobal(this:GetName().."EditBox"):SetText(data.name)
+        getglobal(this:GetName().."EditBox"):SetText(data.name)
     end,
+    ]]
     OnAccept = function(self, data)
         local newName = self.editBox:GetText();
         LKTM:UserWaypointSetNote(data, newName)

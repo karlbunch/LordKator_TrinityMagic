@@ -1514,7 +1514,7 @@ LKTM_Data_Carbonite_Zones = {
 	'thousandneedles', 'thunderbluff', 'tirisfal', 'undercity',
 	'ungorocrater', 'westernplaguelands', 'westfall', 'wetlands',
 	'winterspring', 'zangarmarsh', 'zuldrak',
-} 
+}
 ]]
 
 function LKTM_Data:findAreaId(areaName)
@@ -1530,24 +1530,25 @@ function LKTM_Data:findAreaId(areaName)
 end
 
 function LKTM_Data:PopUp(msg)
+    -- luacheck: globals BasicScriptErrors message
     BasicScriptErrors:Hide();
     print("LKTM_Data:PopUp: " .. msg)
     message(msg)
 end
 
-function LKTM_Data:OnLoad(self, frame)
+function LKTM_Data:OnLoad(frame)
     if LKTM_Data_TaxiMenu == nil then
-        LKTM_Data:QueryTaxiNodes(self, frame)
+        LKTM_Data:QueryTaxiNodes()
     end
 
     if LKTM_Data_ZoneToID == nil then
-        LKTM_Data:QueryZones(self, frame)
+        LKTM_Data:QueryZones(frame)
     end
 end
 
-function LKTM_Data:QueryTaxiNodes(self, frame)
+function LKTM_Data:QueryTaxiNodes()
     -- Setup to query all taxinodes
-    LKTM_Data_TaxiParser = {
+    LKTM_Data.taxiParser = {
         taxiNodes = {},
         taxiNodesByContinentId = {},
         taxiNodeSearchKey = "A",
@@ -1569,19 +1570,20 @@ function LKTM_Data:QueryTaxiNodes(self, frame)
         ["341"] = 1, ["342"] = 1, ["394"] = 1, ["395"] = 1, ["379"] = 1,
     }
 
-    frame:SetScript("OnEvent", function(self, event, arg1)
+    -- luacheck: no unused args
+    frame:SetScript("OnEvent", function(eventFrame, event, arg1)
         -- LANG_TAXINODE_ENTRY_LIST_CHAT = 1128 => %d - |cffffffff|Htaxinode:%u|h[%s %s]|h|r (Map:%u X:%f Y:%f Z:%f)
         -- 108 - |cffffffff|Htaxinode:108|h[Nagrand - PvP - Attack Run End 3 enUS]|h|r (Map:530 X:-1376.719971 Y:7771.169922 Z:-10.080000)
         if not string.find(arg1, "Htaxinode:") then
             return
         end
 
-        LKTM_Data_TaxiParser.taxiNodeCountdown = keyDelay
+        LKTM_Data.taxiParser.taxiNodeCountdown = keyDelay
 
         local taxiNodeId, taxiNodeText, taxiNodeContinentId, taxiNodeLocX, taxiNodeLocY, taxiNodeLocZ = arg1:match("Htaxinode:(%d+)%|h%[(.*) %S+%].*%(Map:(%d+) X:(%S+) Y:(%S+) Z:(%S+)%)")
 
         if taxiNodeId == nil or  taxiNodeText == nil or  taxiNodeContinentId == nil or  taxiNodeLocX == nil or  taxiNodeLocY == nil or  taxiNodeLocZ == nil then
-            LKTM_Data_TaxiParser.failedToParse[arg1] = 1
+            LKTM_Data.taxiParser.failedToParse[arg1] = 1
             return
         end
 
@@ -1590,7 +1592,7 @@ function LKTM_Data:QueryTaxiNodes(self, frame)
         taxiNodeLocZ = tonumber(taxiNodeLocZ)
 
         if (taxiNodeLocX + taxiNodeLocY + taxiNodeLocZ) ~= 0 and taxiNodeBlackList[taxiNodeId] == nil then
-            LKTM_Data_TaxiParser.taxiNodes[taxiNodeId] = {
+            LKTM_Data.taxiParser.taxiNodes[taxiNodeId] = {
                 id = tonumber(taxiNodeId),
                 text = taxiNodeText,
                 continentId = tonumber(taxiNodeContinentId),
@@ -1599,33 +1601,33 @@ function LKTM_Data:QueryTaxiNodes(self, frame)
                 locZ = taxiNodeLocZ,
             }
 
-            if LKTM_Data_TaxiParser.taxiNodesByContinentId[taxiNodeContinentId] == nil then
-                LKTM_Data_TaxiParser.taxiNodesByContinentId[taxiNodeContinentId] = {}
+            if LKTM_Data.taxiParser.taxiNodesByContinentId[taxiNodeContinentId] == nil then
+                LKTM_Data.taxiParser.taxiNodesByContinentId[taxiNodeContinentId] = {}
             end
-            LKTM_Data_TaxiParser.taxiNodesByContinentId[taxiNodeContinentId][taxiNodeId] = LKTM_Data_TaxiParser.taxiNodes[taxiNodeId]
+            LKTM_Data.taxiParser.taxiNodesByContinentId[taxiNodeContinentId][taxiNodeId] = LKTM_Data.taxiParser.taxiNodes[taxiNodeId]
         end
     end)
 
-    frame:SetScript("OnUpdate", function(self, elapsed)
-        if LKTM_Data_TaxiParser.taxiNodePhase == 1 then
-            LKTM_Data_TaxiParser.taxiNodeCountdown = LKTM_Data_TaxiParser.taxiNodeCountdown - elapsed
+    frame:SetScript("OnUpdate", function(eventFrame, elapsed)
+        if LKTM_Data.taxiParser.taxiNodePhase == 1 then
+            LKTM_Data.taxiParser.taxiNodeCountdown = LKTM_Data.taxiParser.taxiNodeCountdown - elapsed
 
-            if LKTM_Data_TaxiParser.taxiNodeCountdown < 0 then
-                if LKTM_Data_TaxiParser.taxiNodeSearchKey <= "Z" then
-                    LKTM_Data:PopUp("Sending Key " .. LKTM_Data_TaxiParser.taxiNodeSearchKey)
-                    LKTM:Message(0, "Sending Key " .. LKTM_Data_TaxiParser.taxiNodeSearchKey)
-                    LKTM_Data_TaxiParser.taxiNodeCountdown = keyDelay
-                    SendChatMessage(".lookup taxinode " .. LKTM_Data_TaxiParser.taxiNodeSearchKey, "whisper", nil, UnitName("player"))
-                    LKTM_Data_TaxiParser.taxiNodeSearchKey = string.char(string.byte(LKTM_Data_TaxiParser.taxiNodeSearchKey)+1)
+            if LKTM_Data.taxiParser.taxiNodeCountdown < 0 then
+                if LKTM_Data.taxiParser.taxiNodeSearchKey <= "Z" then
+                    LKTM_Data:PopUp("Sending Key " .. LKTM_Data.taxiParser.taxiNodeSearchKey)
+                    LKTM:Message(0, "Sending Key " .. LKTM_Data.taxiParser.taxiNodeSearchKey)
+                    LKTM_Data.taxiParser.taxiNodeCountdown = keyDelay
+                    SendChatMessage(".lookup taxinode " .. LKTM_Data.taxiParser.taxiNodeSearchKey, "whisper", nil, UnitName("player"))
+                    LKTM_Data.taxiParser.taxiNodeSearchKey = string.char(string.byte(LKTM_Data.taxiParser.taxiNodeSearchKey)+1)
 
-                    if LKTM_Data_TaxiParser.taxiNodeSearchKey > "Z" then
-                        LKTM_Data_TaxiParser.taxiNodePhase = 2
+                    if LKTM_Data.taxiParser.taxiNodeSearchKey > "Z" then
+                        LKTM_Data.taxiParser.taxiNodePhase = 2
                         LKTM_Data:PopUp("All keys sent, waiting for results")
                     end
                 end
             end
-        elseif LKTM_Data_TaxiParser.taxiNodePhase == 2 then
-            LKTM_Data_TaxiParser.taxiNodePhase = 3
+        elseif LKTM_Data.taxiParser.taxiNodePhase == 2 then
+            LKTM_Data.taxiParser.taxiNodePhase = 3
             frame:UnregisterEvent("CHAT_MSG_SYSTEM")
             frame:SetScript("OnUpdate", nil)
             frame:SetScript("OnEvent", nil)
@@ -1667,9 +1669,9 @@ function LKTM_Data:BuildTaxiMenu()
     for taxiNodeContinentId, text in pairsByKeys(taxiContinentId) do
         table.insert(taxiMenu, { text = text, value = prefix .. taxiNodeContinentId, hasArrow = 1, notCheckable = 1 })
     end
-    for taxiNodeContinentId, nodes in pairsByKeys(LKTM_Data_TaxiParser.taxiNodesByContinentId) do
+    for taxiNodeContinentId, nodes in pairsByKeys(LKTM_Data.taxiParser.taxiNodesByContinentId) do
         taxiMenu[prefix .. taxiNodeContinentId] = {}
-        for taxiNodeId, node in pairsByKeys(nodes, function(a,b) return nodes[a]['text'] < nodes[b]['text'] end) do
+        for _, node in pairsByKeys(nodes, function(a,b) return nodes[a]['text'] < nodes[b]['text'] end) do
             if not node.text:find("-")
             and not node.text:find("PvP")
             and not node.text:find("Quest")
@@ -1685,7 +1687,7 @@ function LKTM_Data:BuildTaxiMenu()
     LKTM_Data:PopUp("Taxi Menu Built")
 end
 
-function LKTM_Data:QueryZones(self, frame)
+function LKTM_Data:QueryZones()
     -- Find Zone Names we want
     local zones = {}
     local function parseZones(...)
@@ -1708,7 +1710,7 @@ function LKTM_Data:QueryZones(self, frame)
 
     local keyDelay = 2
 
-    LKTM_Data_ZoneParser = {
+    LKTM_Data.zoneParser = {
         countdown = keyDelay,
         zoneMap = {},
         phase = 1,
@@ -1719,59 +1721,60 @@ function LKTM_Data:QueryZones(self, frame)
     }
 
     for zoneName,_ in pairs(zones) do
-        table.insert(LKTM_Data_ZoneParser.zoneNames, zoneName)
+        table.insert(LKTM_Data.zoneParser.zoneNames, zoneName)
     end
-    LKTM:Message(0, "Searching for zoneId in " .. #LKTM_Data_ZoneParser.zoneNames .. " zones.")
+    LKTM:Message(0, "Searching for zoneId in " .. #LKTM_Data.zoneParser.zoneNames .. " zones.")
 
     local frame = CreateFrame("Frame", "LordKator_TrinityMagicDataQueryZones")
 
     frame:RegisterEvent("CHAT_MSG_SYSTEM")
 
-    frame:SetScript("OnEvent", function(self, event, arg1)
+    -- luacheck: no unused args
+    frame:SetScript("OnEvent", function(eventFrame, event, arg1)
         -- 3523 - |cffffffff|Harea:3523|h[Netherstorm enUS]|h|r
         if not string.find(arg1, "Harea:") then
             return
         end
 
-        LKTM_Data_ZoneParser.countdown = keyDelay
+        LKTM_Data.zoneParser.countdown = keyDelay
 
         local zoneID, zoneName = arg1:match("Harea:(%d+)%|h%[(.*) %S+%]")
 
         if zoneID == nil or  zoneName == nil then
-            LKTM_Data_ZoneParser.failedToParse[arg1] = 1
+            LKTM_Data.zoneParser.failedToParse[arg1] = 1
             return
         end
 
-        if LKTM_Data_ZoneParser.wantedZones[zoneName] then
-            LKTM_Data_ZoneParser.zoneMap[zoneName:gsub("[%s']", "")] = zoneID
+        if LKTM_Data.zoneParser.wantedZones[zoneName] then
+            LKTM_Data.zoneParser.zoneMap[zoneName:gsub("[%s']", "")] = zoneID
         end
     end)
 
-    frame:SetScript("OnUpdate", function(self, elapsed)
-        if LKTM_Data_ZoneParser.phase == 1 then
-            LKTM_Data_ZoneParser.countdown = LKTM_Data_ZoneParser.countdown - elapsed
+    frame:SetScript("OnUpdate", function(eventFrame, elapsed)
+        if LKTM_Data.zoneParser.phase == 1 then
+            LKTM_Data.zoneParser.countdown = LKTM_Data.zoneParser.countdown - elapsed
 
-            if LKTM_Data_ZoneParser.countdown < 0 then
-                local key = LKTM_Data_ZoneParser.zoneNames[LKTM_Data_ZoneParser.curZoneIdx]
+            if LKTM_Data.zoneParser.countdown < 0 then
+                local key = LKTM_Data.zoneParser.zoneNames[LKTM_Data.zoneParser.curZoneIdx]
 
                 if key then
                     LKTM_Data:PopUp("Sending Key " .. key)
                     LKTM:Message(0, "Sending Key " .. key)
-                    LKTM_Data_ZoneParser.countdown = keyDelay
+                    LKTM_Data.zoneParser.countdown = keyDelay
                     SendChatMessage(".lookup area " .. key, "whisper", nil, UnitName("player"))
-                    LKTM_Data_ZoneParser.curZoneIdx = LKTM_Data_ZoneParser.curZoneIdx + 1
+                    LKTM_Data.zoneParser.curZoneIdx = LKTM_Data.zoneParser.curZoneIdx + 1
                 else
-                    LKTM_Data_ZoneParser.phase = 2
+                    LKTM_Data.zoneParser.phase = 2
                     LKTM_Data:PopUp("All keys sent, waiting for results")
                 end
             end
-        elseif LKTM_Data_ZoneParser.phase == 2 then
-            LKTM_Data_ZoneParser.phase = 3
+        elseif LKTM_Data.zoneParser.phase == 2 then
+            LKTM_Data.zoneParser.phase = 3
             frame:UnregisterEvent("CHAT_MSG_SYSTEM")
             frame:SetScript("OnUpdate", nil)
             frame:SetScript("OnEvent", nil)
             LKTM:Message(0, "TaxiNode Responses Completed")
-            LKTM_Data_ZoneToID = LKTM_Data_ZoneParser.zoneMap
+            LKTM_Data_ZoneToID = LKTM_Data.zoneParser.zoneMap
             LKTM_Data:PopUp("Zone Map Saved to LKTM_Data_ZoneToID")
         end
     end)

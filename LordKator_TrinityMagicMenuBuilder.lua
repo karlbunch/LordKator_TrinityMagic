@@ -95,7 +95,7 @@ function LKTMM_MenuBuilder:build(menuLevel, menuValue)
         end
     end
 
-    for k,v in pairs(info) do
+    for _,v in pairs(info) do
         UIDropDownMenu_AddButton(v, menuLevel)
     end
 
