@@ -23,7 +23,7 @@ This is not designed to be some sort of tool a community server might give to th
 * Clear Combat Flag
 * Appear at target - Teleport to party member
 * Summon to me - Teleport party member to you
-* Die - Instantly kill and NPC from dropdown menu
+* Die - Instantly kill targeted NPC from dropdown menu
 
 ## Screen Shots:
 
