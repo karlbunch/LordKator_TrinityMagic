@@ -204,8 +204,6 @@ function LKTMM:BuildQuestMenu(menu)
                 menu:getLastItem().tooltipText = "Also on quest:\n\n" .. table.concat(partyOnQuest, ", ")
             end
 
-            local delim = string.char(1)
-
             menu:addTitle(3, questTitle, questMenuValue)
                 :addItem(3, "Complete quest", "Complete this quest for " .. UnitName("target") .. ".", {
                     arg1 = LKTMM:encodeArgs("Complete", "target", questTitle, i),
