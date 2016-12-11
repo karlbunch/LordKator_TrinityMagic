@@ -113,7 +113,8 @@ function LKTMM:BuildTaxiMenu(menu)
 end
 
 function LKTMM:QuestTool(frame, arg1, arg2, checked) -- luacheck: no unused args
-    local cmd, unit, title, questLogIndex = strsplit("|", arg1)
+    local delim = string.char(1)
+    local cmd, unit, title, questLogIndex = strsplit(delim, arg1)
     local command = ".quest " .. cmd .. " " .. arg2
 
     if unit == "party" then
@@ -196,14 +197,16 @@ function LKTMM:BuildQuestMenu(menu)
                 menu:getLastItem().tooltipText = "Also on quest:\n\n" .. table.concat(partyOnQuest, ", ")
             end
 
+            local delim = string.char(1)
+
             menu:addTitle(3, questTitle, questMenuValue)
                 :addItem(3, "Complete quest", "Complete this quest for " .. UnitName("target") .. ".", {
-                    arg1 = "Complete|target|" .. questTitle .. "|" .. i,
+                    arg1 = "Complete" .. delim .. "target" .. delim .. questTitle .. delim .. i,
                     arg2 = questID,
                     func = function(entry, arg1, arg2, checked) LKTMM:QuestTool(entry, arg1, arg2, checked) end,
                 }, questMenuValue)
                 :addItem(3, "Remove quest", "Remove this quest from" .. UnitName("target") .. ".", {
-                    arg1 = "Remove|target|" .. questTitle .. "|" .. i,
+                    arg1 = "Remove" .. delim .. "target" .. delim .. questTitle .. delim .. i,
                     arg2 = questID,
                     func = function(entry, arg1, arg2, checked) LKTMM:QuestTool(entry, arg1, arg2, checked) end,
                 }, questMenuValue)
@@ -211,17 +214,17 @@ function LKTMM:BuildQuestMenu(menu)
             if GetNumPartyMembers() > 0 then
                 menu:addTitle(3, "Party", questMenuValue)
                 :addItem(3, "Add to party", "Add this quest to everyone in the party.", {
-                    arg1 = "Add|party|" .. questTitle .. "|" .. i,
+                    arg1 = "Add" .. delim .. "party" .. delim .. questTitle .. delim .. i,
                     arg2 = questID,
                     func = function(entry, arg1, arg2, checked) LKTMM:QuestTool(entry, arg1, arg2, checked) end,
                 }, questMenuValue)
                 :addItem(3, "Complete for party", "Complete this quest for everyone.", {
-                    arg1 = "Complete|party|" .. questTitle .. "|" .. i,
+                    arg1 = "Complete" .. delim .. "party" .. delim .. questTitle .. delim .. i,
                     arg2 = questID,
                     func = function(entry, arg1, arg2, checked) LKTMM:QuestTool(entry, arg1, arg2, checked) end,
                 }, questMenuValue)
                 :addItem(3, "Remove from party", "Remove this quest from everyone.", {
-                    arg1 = "Remove|party|" .. questTitle .. "|" .. i,
+                    arg1 = "Remove" .. delim .. "party" .. delim .. questTitle .. delim .. i,
                     arg2 = questID,
                     func = function(entry, arg1, arg2, checked) LKTMM:QuestTool(entry, arg1, arg2, checked) end,
                 }, questMenuValue)
