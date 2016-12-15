@@ -150,7 +150,7 @@ function LKTMM:QuestTool(frame, arg1, arg2, checked) -- luacheck: no unused args
         return
     end
 
-    LKTM:CommandOnUnit(unit, cmd)
+    LKTM:CommandOnUnit(unit, command)
 end
 
 function LKTMM:BuildQuestMenu(menu)
