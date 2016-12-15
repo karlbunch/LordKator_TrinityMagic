@@ -15,6 +15,7 @@
 SLASH_LORDKATOR_TRINITYMAGIC1 = "/lktm"
 SLASH_LORDKATOR_TRINITYMAGIC2 = "/magic"
 SLASH_LORDKATOR_TRINITYMAGIC_ONALL1 = "/onall"
+SLASH_LORDKATOR_TRINITYMAGIC_GIVEME1 = "/giveme"
 
 BINDING_HEADER_LKTMHEADER = "Lord Kator's Trinity Magic"
 BINDING_NAME_LKTMBINDING1 = "Open Chat with DOT"
@@ -683,6 +684,16 @@ SlashCmdList["LORDKATOR_TRINITYMAGIC_ONALL"] = function(msg)
     macroText = macroText .. "/cleartarget\n"
 
     LordKator_TrinityMagicConfirm:confirmMacro(title, macroText)
+end
+
+SlashCmdList["LORDKATOR_TRINITYMAGIC_GIVEME"] = function(msg)
+    -- http://us.battle.net/wow/en/item/34361
+    -- http://www.wowhead.com/item=34361/hard-khorium-band
+    local itm = msg:match("item[/=](%d+)")
+    if itm == nil then
+        DEFAULT_CHAT_FRAME:AddMessage("Invalid URL: " .. msg, 1, 0, 0)
+    end
+    LKTM:CommandOnUnit("player",".additem " .. itm)
 end
 
 StaticPopupDialogs["LKTM_PromptCmd"] = {
