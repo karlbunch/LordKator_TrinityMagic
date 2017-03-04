@@ -340,6 +340,11 @@ function LKTM:SetGlobalPreference(key, value)
 end
 
 function LKTM:ConvertPreferences()
+    if LordKator_TrinityMagic_Prefs_Global == nil then
+        LordKator_TrinityMagic_Prefs_Global = { _preferencesVersion = 2 }
+        return
+    end
+
     if LordKator_TrinityMagic_Prefs_Global and LordKator_TrinityMagic_Prefs_Global["_preferencesVersion"] >= 2 then
         return
     end
