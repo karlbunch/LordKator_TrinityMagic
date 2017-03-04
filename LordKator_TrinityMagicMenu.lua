@@ -419,16 +419,25 @@ function LKTMM:InitializeDropDown(frame, level) -- luacheck: no unused args
         }, "SetControlClickCommand")
     end
 
-    local history = LKTM:GetCommandHistory()
+    local history, history_count = LKTM:GetCommandHistory()
 
-    for cmd,_ in pairs(history) do
-        if LKTMM.commandTips[cmd] == nil then
-            menu:addItem(2, cmd, "", {
-                func = function()
-                    LKTM:SetDefaultCommand(cmd)
-                    CloseDropDownMenus()
-                end
-            }, "SetControlClickCommand")
+    if history_count > 0 then
+        menu:addItem(2, "<Clear History>", "", {
+            func = function()
+                LKTM:ClearCommandHistory()
+                CloseDropDownMenus()
+            end
+        }, "SetControlClickCommand")
+
+        for cmd, _ in LKTM:pairsByKeys(history, function(a,b) return a < b end) do
+            if LKTMM.commandTips[cmd] == nil then
+                menu:addItem(2, cmd, "", {
+                    func = function()
+                        LKTM:SetDefaultCommand(cmd)
+                        CloseDropDownMenus()
+                    end
+                }, "SetControlClickCommand")
+            end
         end
     end
 

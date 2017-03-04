@@ -219,16 +219,14 @@ function LKTM:SetupPostClicks()
 end
 
 function LKTM:SetDefaultCommand(newCommand)
-    LKTM:SetGlobalPreference(kPrefDefaultCommand, newCommand)
-
-    if newCommand ~= LKTM.defaults[kPrefDefaultCommand] then
-        local history = LKTM:GetCommandHistory()
-        if history[newCommand] then
-            history[newCommand] = history[newCommand] + 1
-        else
-            history[newCommand] = 1
-        end
+    local history = LKTM:GetCommandHistory()
+    if history[newCommand] then
+        history[newCommand] = history[newCommand] + 1
+    else
+        history[newCommand] = 1
     end
+    LKTM:SetGlobalPreference(kPrefDefaultCommandHistory, history)
+    LKTM:SetGlobalPreference(kPrefDefaultCommand, newCommand)
 end
 
 function LKTM:DefaultCommandOnUnit(unit, button) -- luacheck: no unused args
@@ -238,13 +236,24 @@ end
 function LKTM:GetCommandHistory()
     local key = kPrefDefaultCommandHistory
     local list = LKTM:GetGlobalPreference(key)
+    local count = 0
 
     if list == nil then
         list = {}
         LKTM:SetGlobalPreference(key, list)
     end
 
-    return list
+    for _,_ in pairs(list) do
+        count = count + 1
+    end
+
+    return list, count
+end
+
+function LKTM:ClearCommandHistory()
+    local key = kPrefDefaultCommandHistory
+    local list = {}
+    LKTM:SetGlobalPreference(key, list)
 end
 
 function LKTM:GetTaxiHistory()
