@@ -25,9 +25,10 @@ local kPrefDefaultCommandHistory = 'ctrl-command1-history'
 local kPrefTaxiHistory = "taxiHistory"
 local kPrefSavedNPClist = "savedNPClist"
 local kPrefUserWaypoints = "userWaypoints"
+local kPrefSessionTargetDPS = "targetDPS"
 
 LKTM = {
-    version = "0.0.1",
+    version = "0.0.4",
     debugLevel = 8,
     globalDefaults = {
         [kPrefDefaultCommand] = "should use " .. SLASH_LORDKATOR_TRINITYMAGIC1 .. ' [setcmd|prompt] first!',
@@ -38,6 +39,10 @@ LKTM = {
         [kPrefTaxiHistory] = {},
         [kPrefSavedNPClist] = {},
         [kPrefUserWaypoints] = {},
+    },
+
+    sessionDefaults = {
+        targetDPS = 0,
     },
 
     eventHandlers = {
@@ -75,7 +80,97 @@ LKTM = {
                 end
                 LKTM:Message(0, "Hooked Carbonite map menu, right click the map and select " .. menuText)
             end
-        end
+        end,
+        ["COMBAT_LOG_EVENT_UNFILTERED"] = function(frame, event, ...)
+            local _,_ = frame, event
+            -- SPELL:       1          2          3        4        5         6        7        8         9        10         11           12      13        14      15        16       17        18        19        20
+            -- SPELL: local timestamp, eventtype, srcGUID, srcName, srcFlags, dstGUID, dstName, dstFlags, spellId, spellName, spellSchool, amount, overkill, school, resisted, blocked, absorbed, critical, glancing, crushing = ...
+            -- RANGE: local timestamp, eventtype, srcGUID, srcName, srcFlags, dstGUID, dstName, dstFlags, spellId, spellName, spellSchool, amount, overkill, school, resisted, blocked, absorbed, critical, glancing, crushing = ...
+            -- SWING:       1          2          3        4        5         6        7        8                                          9       10        11      12        13       14        15        16        17
+            -- SWING: local timestamp, eventtype, srcGUID, srcName, srcFlags, dstGUID, dstName, dstFlags,                                  amount, overkill, school, resisted, blocked, absorbed, critical, glancing, crushing = ...
+            -- ENVIR:       1          2          3        4        5         6        7        8         9                                10      11        12      13        14       15        16        17        18
+            -- ENVIR: local timestamp, eventtype, srcGUID, srcName, srcFlags, dstGUID, dstName, dstFlags, environmentalType,               amount, overkill, school, resisted, blocked, absorbed, critical, glancing, crushing = ...
+            --
+
+            if select(3, ...) ~= UnitGUID("player") then
+                return
+            end
+
+            local eventtype = select(2, ...)
+
+            if string.sub(eventtype, -7) ~= "_DAMAGE" then
+                return
+            end
+
+            --[[
+            if true then
+                local timestamp, eventtype, srcGUID, srcName, srcFlags, dstGUID, dstName, dstFlags, spellId, spellName, spellSchool, amount, overkill, school, resisted, blocked, absorbed, critical, glancing, crushing = ...
+                local environmentalType = ""
+                if eventtype == "SWING_DAMAGE" then
+                      timestamp, eventtype, srcGUID, srcName, srcFlags, dstGUID, dstName, dstFlags,                                  amount, overkill, school, resisted, blocked, absorbed, critical, glancing, crushing = ...
+                elseif eventtype == "ENVIRONMENTAL_DAMAGE" then
+                      timestamp, eventtype, srcGUID, srcName, srcFlags, dstGUID, dstName, dstFlags, environmentalType,               amount, overkill, school, resisted, blocked, absorbed, critical, glancing, crushing = ...
+                end
+
+                print("timestamp:", timestamp, "eventtype:", eventtype, "srcGUID:", srcGUID, "srcName:", srcName, "srcFlags:", srcFlags, "dstGUID:", dstGUID, "dstName:", dstName, "dstFlags:", dstFlags, "environmentalType:", environmentalType, "spellId:", spellId, "spellName:", spellName, "spellSchool:", spellSchool, "amount:", amount, "overkill:", overkill, "school:", school, "resisted:", resisted, "blocked:", blocked, "absorbed:", absorbed, "critical:", critical, "glancing:", glancing, "crushing:", crushing)
+            end
+            ]]
+
+            local timestamp, amount, overkill = select(1, ...), select(12, ...), select(13, ...)
+
+            if eventtype == "SWING_DAMAGE" then
+                amount, overkill = select(9, ...), select(10, ...)
+            elseif eventtype == "ENVIRONMENTAL_DAMAGE" then
+                amount, overkill = select(10, ...), select(11, ...)
+            end
+
+            if LKTM.combat_start == nil then
+                LKTM.combat_start = timestamp
+                LKTM.combat_total_damage = 0
+                LKTM.combat_dps = 0
+                LKTM.dpsBoostTotal = 0.0
+                LKTM.dpsBoostLastTime = 0
+                LKTM.dpsBoostLastAmount = 0
+                LKTM:Message(0, "Combat start, DPS Target = " .. LKTM:GetTargetDPS())
+            end
+
+            LKTM.combat_total_damage = LKTM.combat_total_damage + (amount - overkill)
+
+            local combat_seconds = timestamp - LKTM.combat_start
+
+            if combat_seconds > 0 then
+                LKTM.combat_dps = LKTM.combat_total_damage / combat_seconds
+
+                if (timestamp - LKTM.dpsBoostLastTime) >= 1.0 and amount ~= LKTM.dpsBoostLastAmount then
+                    local dpsTarget = LKTM:GetTargetDPS()
+                    local dpsBoostAmount = math.floor((combat_seconds * dpsTarget) - LKTM.combat_total_damage)
+
+                    if dpsBoostAmount > 50 and not UnitIsFriend("player", "target") and UnitChannelInfo("player") == nil then
+                        local cmd = '.damage ' .. dpsBoostAmount
+                        LKTM:CommandOnUnit("target", cmd, true)
+                        LKTM:Message(0, "DPS Boost>> ++" ..  dpsBoostAmount .. " hp, target: " .. dpsTarget .. " current: " .. math.floor(LKTM.combat_dps * 10.0)/10.0)
+                        LKTM.dpsBoostLastTime = timestamp
+                        LKTM.dpsBoostLastAmount = dpsBoostAmount
+                        LKTM.dpsBoostTotal = LKTM.dpsBoostTotal + LKTM.dpsBoostLastAmount
+                    end
+                end
+            end
+
+            --[[
+            LKTM:Message(0,
+                amount .. " dmg, (" ..  overkill .. " ok) DPS: " ..
+                math.floor(LKTM.combat_dps * 10.0)/10.0 .. " totalDamage: " ..
+                LKTM.combat_total_damage ..  " (" ..
+                LKTM.dpsBoostTotal .. " boost) " ..
+                math.floor(combat_seconds) .. " second(s)"
+            )
+            ]]
+        end,
+        ["PLAYER_REGEN_ENABLED"] = function()
+            LKTM:Message(0, "Combat end: " .. LKTM.dpsBoostTotal .. " hit points added, DPS:" .. math.floor(LKTM.combat_dps * 10.0) / 10.0)
+            LKTM.dpsBoostAmount = nil
+            LKTM.combat_start = nil
+        end,
     },
 
     slashCommands = {
@@ -155,6 +250,26 @@ LKTM = {
                 LKTM:DefaultCommandOnUnit("target", nil)
             end
         },
+
+        ["dps"] = {
+            usage = "- Target dps for combat",
+
+            cmd = function(args)
+                if args == nil or args == "" then
+                    LKTM:Message(0, "Please specify a target dps amount.")
+                    return
+                end
+
+                local newTarget = tonumber(args)
+
+                if newTarget == nil or newTarget < 0 then
+                    LKTM:Message(0, "Please specify a target dps amount of 0 or greater.")
+                    return
+                end
+
+                LKTM:SetTargetDPS(args)
+            end
+        },
     },
 }
 
@@ -216,6 +331,18 @@ function LKTM:SetupPostClicks()
             partyMemberFrame:SetAttribute("ctrl-type2", "target");
         end
     end
+end
+
+function LKTM:SetTargetDPS(newTargetDPS)
+    local tdps = tonumber(newTargetDPS)
+    if tdps and tdps >= 0 then
+        LKTM:Message(0, "New target DPS [" .. tdps .. "]")
+        LKTM:SetSessionPreference(kPrefSessionTargetDPS, tdps)
+    end
+end
+
+function LKTM:GetTargetDPS()
+    return LKTM:GetSessionPreference(kPrefSessionTargetDPS) or ""
 end
 
 function LKTM:SetDefaultCommand(newCommand)
@@ -300,10 +427,12 @@ function LKTM:GotoTaxiNode(nodeEntry)
     LKTM:SetCharacterPreference(kPrefTaxiHistory, history)
 end
 
-function LKTM:CommandOnUnit(unit, command)
+function LKTM:CommandOnUnit(unit, command, quiet)
     local displayCmd, _ = command:gsub("\n$", "");
 
-    LKTM:Message(0, "Run Command: [" .. displayCmd .. "] on " .. UnitName(unit))
+    if not quiet then
+        LKTM:Message(0, "Run Command: [" .. displayCmd .. "] on " .. UnitName(unit))
+    end
 
     if unit ~= "target" and UnitIsPlayer(unit) then
         command = command .. " " .. UnitName(unit)
@@ -315,6 +444,10 @@ end
 
 function LKTM:PromptForCommand()
     StaticPopup_Show("LKTM_PromptCmd")
+end
+
+function LKTM:PromptForTargetDPS()
+    StaticPopup_Show("LKTM_PromptTargetDPS")
 end
 
 -- --------------------- --
@@ -396,6 +529,22 @@ function LKTM:SetCharacterPreference(key, value)
     end
 
     LordKator_TrinityMagic_Prefs_Character[key] = value
+
+    return value, oldValue
+end
+
+function LKTM:GetSessionPreference(key)
+    if LKTM.sessionDefaults[key] then
+        return LKTM.sessionDefaults[key]
+    end
+
+    return nil
+end
+
+function LKTM:SetSessionPreference(key, value)
+    local oldValue = LKTM:GetSessionPreference(key)
+
+    LKTM.sessionDefaults[key] = value
 
     return value, oldValue
 end
@@ -621,7 +770,7 @@ function LKTM:OnEvent(frame, event, ...)
     local handler = LKTM.eventHandlers[event]
 
     if handler ~= nil then
-        (handler)(frame, event, arg1, arg2, arg3, arg4, arg5)
+        (handler)(frame, event, ...)
     else
         LKTM:Message(0, "Unexpected Event: " .. event .. "(" .. (arg1 or "nil") .. ", " .. (arg2 or "nil") .. ", " .. (arg3 or "nil") .. ", " .. (arg4 or "nil") .. ", " .. (arg5 or "nil") .. ")")
     end
@@ -730,5 +879,35 @@ StaticPopupDialogs["LKTM_PromptCmd"] = {
         local newCommand = getglobal(this:GetParent():GetName().."EditBox"):GetText()
         LKTM:Message(0, "New command [" .. newCommand .. "]")
         LKTM:SetDefaultCommand(newCommand)
-    end
+    end,
+    EditBoxOnEnterPressed = function(self)
+        local newCommand = self:GetParent().editBox:GetText();
+        LKTM:Message(0, "New command [" .. newCommand .. "]")
+        LKTM:SetDefaultCommand(newCommand)
+        self:GetParent():Hide();
+    end,
+}
+
+StaticPopupDialogs["LKTM_PromptTargetDPS"] = {
+    text = "What do you want your target DPS to be?",
+    button1 = "Set",
+    button2 = "Cancel",
+    button3 = "Zero",
+    hasEditBox = 1,
+    whileDead = 1,
+    hideOnEscape = 1,
+    timeout = 0,
+    OnShow = function()
+        getglobal(this:GetName().."EditBox"):SetText(LKTM:GetTargetDPS())
+    end,
+    OnAccept = function()
+        LKTM:SetTargetDPS(getglobal(this:GetParent():GetName().."EditBox"):GetText())
+    end,
+    OnAlt = function()
+        LKTM:SetTargetDPS("0")
+    end,
+    EditBoxOnEnterPressed = function(self)
+        LKTM:SetTargetDPS(self:GetParent().editBox:GetText())
+        self:GetParent():Hide();
+    end,
 }

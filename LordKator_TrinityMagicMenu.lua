@@ -52,6 +52,10 @@ LKTMM = {
     },
 }
 
+function LKTMM.SetTargetDPS()
+    LKTM:PromptForTargetDPS()
+end
+
 function LKTMM:SetDefaultCommand()
     LKTM:PromptForCommand()
 end
@@ -401,7 +405,17 @@ function LKTMM:InitializeDropDown(frame, level) -- luacheck: no unused args
     end
 
     if UnitIsPlayer("target") then
-        menu:addCommand(1, ".recall"):addCommand(1, ".revive"):addCommand(1, ".repairitems"):addCommand(1, ".combatstop")
+        local dpsPrompt = "Set Target DPS"
+
+        if LKTM:GetTargetDPS() > 0 then
+            dpsPrompt = "Change Target DPS (" .. LKTM:GetTargetDPS() .. ")"
+        end
+
+        menu:addCommand(1, ".recall"):addCommand(1, ".revive"):addCommand(1, ".repairitems")
+        :addItem(1, dpsPrompt, "Prompt for target DPS.", {
+            func = LKTMM.SetTargetDPS
+        })
+        :addCommand(1, ".combatstop")
     end
 
     menu:addTitle(2, "Set Control-Click Command", "SetControlClickCommand")
