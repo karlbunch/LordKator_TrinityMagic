@@ -167,7 +167,7 @@ LKTM = {
             ]]
         end,
         ["PLAYER_REGEN_ENABLED"] = function()
-            LKTM:Message(0, "Combat end: " .. LKTM.dpsBoostTotal .. " hit points added, DPS:" .. math.floor(LKTM.combat_dps * 10.0) / 10.0)
+            LKTM:Message(0, "Combat end: " .. (LKTM.dpsBoostTotal or 0) .. " hit points added, DPS:" .. math.floor((LKTM.combat_dps or 0) * 10.0) / 10.0)
             LKTM.dpsBoostAmount = nil
             LKTM.combat_start = nil
         end,
@@ -683,6 +683,8 @@ end
 
 function LKTM:FilterSystemChat (event, message) -- luacheck: no unused args
     -- luacheck: globals arg1
+    local msg = arg1 or message
+
     -- Look for output of .npc info
     -- LANG_NPCINFO_CHAR (ID 539)
     -- NPC currently selected by player:
@@ -700,9 +702,9 @@ function LKTM:FilterSystemChat (event, message) -- luacheck: no unused args
         return false
     end
 
-    if string.sub(arg1, 1, 33) == "NPC currently selected by player:" then
+    if string.sub(msg, 1, 33) == "NPC currently selected by player:" then
         LKTM.copyNPCstate.rawLines = {}
-    elseif string.sub(arg1, 1, 19) == "MechanicImmuneMask:" then
+    elseif string.sub(msg, 1, 19) == "MechanicImmuneMask:" then
         local newList = LKTM:GetSavedNPClist()
 
         newList[tostring(LKTM.copyNPCstate.entryID)] = {
@@ -721,14 +723,14 @@ function LKTM:FilterSystemChat (event, message) -- luacheck: no unused args
         LKTM:Message(0, "Saved NPC " .. LKTM.copyNPCstate.unitName)
         LKTM.copyNPCstate = nil
     else
-        table.insert(LKTM.copyNPCstate.rawLines, arg1)
+        table.insert(LKTM.copyNPCstate.rawLines, msg)
 
-        local dbGUID = arg1:match("DB GUID: (%d+),")
+        local dbGUID = msg:match("DB GUID: (%d+),")
 
         if dbGUID then
             LKTM.copyNPCstate.dbGUID = dbGUID
         else
-            local entryID = arg1:match("Entry: (%d+)%.")
+            local entryID = msg:match("Entry: (%d+)%.")
 
             if entryID then
                 LKTM.copyNPCstate.entryID = entryID
@@ -765,7 +767,7 @@ end
 function LKTM:OnEvent(frame, event, ...)
     local arg1, arg2, arg3, arg4, arg5 = ...
 
-    LKTM:Message(10, "OnEvent: " .. (event or "nil") .. "(" .. (arg1 or "nil") .. ", " .. (arg2 or "nil") .. ", " .. (arg3 or "nil") .. ", " .. (arg4 or "nil") .. ", " .. (arg5 or "nil") .. ")")
+    LKTM:Message(10, "OnEvent: " .. tostring(event or "nil") .. "(" .. tostring(arg1 or "nil") .. ", " .. tostring(arg2 or "nil") .. ", " .. tostring(arg3 or "nil") .. ", " .. tostring(arg4 or "nil") .. ", " .. tostring(arg5 or "nil") .. ")")
 
     local handler = LKTM.eventHandlers[event]
 
